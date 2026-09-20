@@ -8,7 +8,7 @@ defmodule Quizir.Quizzes.Quiz do
     field :visibility, :string, default: "public"
     field :access_code, :string
 
-    has_many :questions, Quizir.Quizzes.Question, on_delete: :delete_all
+    has_many :questions, Quizir.Quizzes.Question, on_delete: :delete_all, on_replace: :delete
 
     timestamps(type: :utc_datetime)
   end

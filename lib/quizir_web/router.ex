@@ -22,6 +22,8 @@ defmodule QuizirWeb.Router do
     # Routes Quizir
     live "/quizzes", QuizLive.Index, :index
     live "/quizzes/new", QuizLive.Form, :new
+    live "/quizzes/:id", QuizLive.Show, :show
+    live "/quizzes/:id/edit", QuizLive.Form, :edit
   end
 
   # Other scopes may use custom stacks.

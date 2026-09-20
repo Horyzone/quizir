@@ -6,6 +6,26 @@ defmodule QuizirWeb.QuizLive.Form do
 
   @impl true
   def mount(_params, _session, socket) do
+    {:ok, socket}
+  end
+
+  @impl true
+  def handle_params(params, _url, socket) do
+    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  defp apply_action(socket, :edit, %{"id" => id}) do
+    quiz = Quizzes.get_quiz_with_details!(id)
+    changeset = Quizzes.change_quiz(quiz)
+
+    socket
+    |> assign(:page_title, "Modifier le Quiz")
+    |> assign(:quiz, quiz)
+    |> assign(:quiz_params, quiz_to_params(quiz))
+    |> assign(:form, to_form(changeset))
+  end
+
+  defp apply_action(socket, :new, _params) do
     default_quiz_params = %{
       "title" => "",
       "description" => "",
@@ -24,19 +44,47 @@ defmodule QuizirWeb.QuizLive.Form do
       ]
     }
 
-    changeset = Quizzes.change_quiz(%Quiz{}, default_quiz_params)
+    quiz = %Quiz{}
+    changeset = Quizzes.change_quiz(quiz, default_quiz_params)
 
-    {:ok,
-     socket
-     |> assign(:page_title, "Créer un Quiz")
-     |> assign(:quiz_params, default_quiz_params)
-     |> assign(:form, to_form(changeset))}
+    socket
+    |> assign(:page_title, "Créer un Quiz")
+    |> assign(:quiz, quiz)
+    |> assign(:quiz_params, default_quiz_params)
+    |> assign(:form, to_form(changeset))
+  end
+
+  defp quiz_to_params(%Quiz{} = quiz) do
+    %{
+      "id" => quiz.id,
+      "title" => quiz.title || "",
+      "description" => quiz.description || "",
+      "visibility" => quiz.visibility || "public",
+      "access_code" => quiz.access_code || "",
+      "questions" =>
+        Enum.map(quiz.questions || [], fn q ->
+          %{
+            "id" => q.id,
+            "order" => q.order,
+            "body" => q.body || "",
+            "time_limit_seconds" => q.time_limit_seconds || 20,
+            "answer_options" =>
+              Enum.map(q.answer_options || [], fn opt ->
+                %{
+                  "id" => opt.id,
+                  "body" => opt.body || "",
+                  "is_correct" => opt.is_correct
+                }
+              end)
+          }
+        end)
+    }
   end
 
   @impl true
   def handle_event("validate", %{"quiz" => quiz_params}, socket) do
     changeset =
-      %Quiz{}
+      socket.assigns.quiz
       |> Quizzes.change_quiz(quiz_params)
       |> Map.put(:action, :validate)
 
@@ -63,7 +111,7 @@ defmodule QuizirWeb.QuizLive.Form do
 
     updated_questions = questions ++ [new_question]
     updated_params = Map.put(params, "questions", updated_questions)
-    changeset = Quizzes.change_quiz(%Quiz{}, updated_params)
+    changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
 
     {:noreply,
      socket
@@ -88,7 +136,7 @@ defmodule QuizirWeb.QuizLive.Form do
       end
 
     updated_params = Map.put(params, "questions", updated_questions)
-    changeset = Quizzes.change_quiz(%Quiz{}, updated_params)
+    changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
 
     {:noreply,
      socket
@@ -110,7 +158,7 @@ defmodule QuizirWeb.QuizLive.Form do
       end)
 
     updated_params = Map.put(params, "questions", updated_questions)
-    changeset = Quizzes.change_quiz(%Quiz{}, updated_params)
+    changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
 
     {:noreply,
      socket
@@ -141,7 +189,7 @@ defmodule QuizirWeb.QuizLive.Form do
       end)
 
     updated_params = Map.put(params, "questions", updated_questions)
-    changeset = Quizzes.change_quiz(%Quiz{}, updated_params)
+    changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
 
     {:noreply,
      socket
@@ -151,6 +199,26 @@ defmodule QuizirWeb.QuizLive.Form do
 
   @impl true
   def handle_event("save", %{"quiz" => quiz_params}, socket) do
+    save_quiz(socket, socket.assigns.live_action, quiz_params)
+  end
+
+  defp save_quiz(socket, :edit, quiz_params) do
+    case Quizzes.update_quiz(socket.assigns.quiz, quiz_params) do
+      {:ok, quiz} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Quiz « #{quiz.title} » mis à jour avec succès !")
+         |> push_navigate(to: ~p"/quizzes/#{quiz}")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(:quiz_params, quiz_params)
+         |> assign(:form, to_form(changeset))}
+    end
+  end
+
+  defp save_quiz(socket, :new, quiz_params) do
     case Quizzes.create_quiz(quiz_params) do
       {:ok, quiz} ->
         {:noreply,
@@ -199,8 +267,12 @@ defmodule QuizirWeb.QuizLive.Form do
               Configurez votre quiz et ses questions avant de lancer une partie.
             </p>
           </div>
-          <.button id="back-button" navigate={~p"/quizzes"} class="btn btn-ghost btn-sm">
-            <.icon name="hero-arrow-left" class="size-4 mr-1" /> Retour aux quiz
+          <.button
+            id="back-button"
+            navigate={if @live_action == :edit, do: ~p"/quizzes/#{@quiz}", else: ~p"/quizzes"}
+            class="btn btn-ghost btn-sm"
+          >
+            <.icon name="hero-arrow-left" class="size-4 mr-1" /> Retour
           </.button>
         </div>
 
@@ -277,6 +349,12 @@ defmodule QuizirWeb.QuizLive.Form do
                     </span>
 
                     <input type="hidden" name={q_form[:order].name} value={q_form.index + 1} />
+                    <input
+                      :if={q_form[:id].value}
+                      type="hidden"
+                      name={q_form[:id].name}
+                      value={q_form[:id].value}
+                    />
 
                     <button
                       type="button"
@@ -333,6 +411,12 @@ defmodule QuizirWeb.QuizLive.Form do
                           class="flex items-center gap-3 p-2.5 rounded-lg bg-base-200/50 border border-base-300"
                         >
                           <div class="flex-1">
+                            <input
+                              :if={opt_form[:id].value}
+                              type="hidden"
+                              name={opt_form[:id].name}
+                              value={opt_form[:id].value}
+                            />
                             <.input
                               field={opt_form[:body]}
                               id={"question-#{q_form.index}-option-#{opt_form.index}-body"}
@@ -379,15 +463,19 @@ defmodule QuizirWeb.QuizLive.Form do
           </div>
 
           <div class="mt-8 pt-6 border-t border-zinc-200 flex items-center justify-end gap-3">
-            <.button id="cancel-button" navigate={~p"/quizzes"} class="btn btn-ghost">
+            <.button
+              id="cancel-button"
+              navigate={if @live_action == :edit, do: ~p"/quizzes/#{@quiz}", else: ~p"/quizzes"}
+              class="btn btn-ghost"
+            >
               Annuler
             </.button>
             <.button
               id="save-quiz-button"
               variant="primary"
-              phx-disable-with="Enregistrement du quiz..."
+              phx-disable-with="Enregistrement..."
             >
-              Créer le quiz
+              {if @live_action == :edit, do: "Enregistrer les modifications", else: "Créer le quiz"}
             </.button>
           </div>
         </.form>

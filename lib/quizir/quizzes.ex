@@ -18,7 +18,8 @@ defmodule Quizir.Quizzes do
 
   """
   def list_quizzes do
-    Repo.all(Quiz)
+    from(q in Quiz, order_by: [desc: q.inserted_at, desc: q.id])
+    |> Repo.all()
   end
 
   @doc """
@@ -38,12 +39,13 @@ defmodule Quizir.Quizzes do
   def get_quiz!(id), do: Repo.get!(Quiz, id)
 
   def get_quiz_with_details!(id) do
-    import Ecto.Query
+    questions_query = from q in Quizir.Quizzes.Question, order_by: [asc: q.order, asc: q.id]
+    options_query = from o in Quizir.Quizzes.AnswerOption, order_by: [asc: o.id]
 
-    Quizir.Repo.one!(
-      from q in Quizir.Quizzes.Quiz,
+    Repo.one!(
+      from q in Quiz,
         where: q.id == ^id,
-        preload: [questions: :answer_options]
+        preload: [questions: ^{questions_query, answer_options: options_query}]
     )
   end
 

@@ -203,4 +203,119 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert html =~ "Quiz disponibles"
     end
   end
+
+  describe "GET /quizzes/:id/edit" do
+    defp create_quiz_for_edit do
+      {:ok, quiz} =
+        Quizzes.create_quiz(%{
+          title: "Quiz Histoire",
+          description: "Histoire de France",
+          visibility: "public",
+          questions: [
+            %{
+              body: "En quelle année a eu lieu la Révolution française ?",
+              order: 1,
+              time_limit_seconds: 30,
+              answer_options: [
+                %{body: "1789", is_correct: true},
+                %{body: "1799", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      quiz
+    end
+
+    test "renders edit form pre-populated with quiz data", %{conn: conn} do
+      quiz = create_quiz_for_edit()
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      assert has_element?(view, "#quiz-form")
+      assert has_element?(view, "#quiz-title[value='Quiz Histoire']")
+
+      assert has_element?(
+               view,
+               "#question-0-body[value='En quelle année a eu lieu la Révolution française ?']"
+             )
+
+      assert has_element?(view, "#save-quiz-button", "Enregistrer les modifications")
+    end
+
+    test "updates quiz and redirects to show on valid submission", %{conn: conn} do
+      quiz = create_quiz_for_edit()
+      detailed = Quizzes.get_quiz_with_details!(quiz.id)
+      [q] = detailed.questions
+      [a1, a2] = q.answer_options
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      update_params = %{
+        "title" => "Quiz Histoire Contemporaine",
+        "description" => "Mise à jour",
+        "visibility" => "public",
+        "questions" => %{
+          "0" => %{
+            "id" => to_string(q.id),
+            "body" => "Prise de la Bastille ?",
+            "order" => "1",
+            "time_limit_seconds" => "15",
+            "answer_options" => %{
+              "0" => %{
+                "id" => to_string(a1.id),
+                "body" => "14 juillet 1789",
+                "is_correct" => "true"
+              },
+              "1" => %{
+                "id" => to_string(a2.id),
+                "body" => "14 juillet 1790",
+                "is_correct" => "false"
+              }
+            }
+          }
+        }
+      }
+
+      {:ok, _show_live, html} =
+        view
+        |> form("#quiz-form", quiz: update_params)
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/quizzes/#{quiz}")
+
+      assert html =~ "Quiz « Quiz Histoire Contemporaine » mis à jour avec succès !"
+
+      reloaded = Quizzes.get_quiz_with_details!(quiz.id)
+      assert reloaded.title == "Quiz Histoire Contemporaine"
+      assert hd(reloaded.questions).body == "Prise de la Bastille ?"
+      assert hd(hd(reloaded.questions).answer_options).body == "14 juillet 1789"
+    end
+
+    test "renders errors when updating with invalid data", %{conn: conn} do
+      quiz = create_quiz_for_edit()
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      response =
+        view
+        |> form("#quiz-form", quiz: %{"title" => ""})
+        |> render_submit()
+
+      assert response =~ "can&#39;t be blank"
+    end
+
+    test "navigates back to show page on cancel", %{conn: conn} do
+      quiz = create_quiz_for_edit()
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      {:ok, _show_live, html} =
+        view
+        |> element("#cancel-button")
+        |> render_click()
+        |> follow_redirect(conn, ~p"/quizzes/#{quiz}")
+
+      assert html =~ quiz.title
+    end
+  end
 end

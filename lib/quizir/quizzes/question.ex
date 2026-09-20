@@ -8,7 +8,10 @@ defmodule Quizir.Quizzes.Question do
     field :time_limit_seconds, :integer, default: 20
 
     belongs_to :quiz, Quizir.Quizzes.Quiz
-    has_many :answer_options, Quizir.Quizzes.AnswerOption, on_delete: :delete_all
+
+    has_many :answer_options, Quizir.Quizzes.AnswerOption,
+      on_delete: :delete_all,
+      on_replace: :delete
 
     timestamps(type: :utc_datetime)
   end
