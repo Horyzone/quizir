@@ -24,6 +24,10 @@ defmodule QuizirWeb.Router do
     live "/quizzes/new", QuizLive.Form, :new
     live "/quizzes/:id", QuizLive.Show, :show
     live "/quizzes/:id/edit", QuizLive.Form, :edit
+
+    # Routes Jeux Multijoueur
+    live "/join", GameLive.Join, :join
+    live "/games/:code", GameLive.Play, :play
   end
 
   # Other scopes may use custom stacks.

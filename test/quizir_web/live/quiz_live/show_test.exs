@@ -81,17 +81,20 @@ defmodule QuizirWeb.QuizLive.ShowTest do
       assert_raise Ecto.NoResultsError, fn -> Quizzes.get_quiz!(quiz.id) end
     end
 
-    test "clicks start game button and triggers notification", %{conn: conn} do
+    test "clicks start game button and redirects to game lobby", %{conn: conn} do
       quiz = create_detailed_quiz()
 
       {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}")
 
-      html =
+      {:ok, game_live, _html} =
         view
         |> element("#start-game-btn")
         |> render_click()
+        |> follow_redirect(conn)
 
-      assert html =~ "Le moteur multijoueur sera initialisé dans la prochaine étape !"
+      assert has_element?(game_live, "#host-badge")
+      assert has_element?(game_live, "#host-start-game-btn")
+      assert has_element?(game_live, "#lobby-screen")
     end
 
     test "navigates back to index", %{conn: conn} do

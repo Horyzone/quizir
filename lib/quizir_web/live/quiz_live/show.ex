@@ -29,9 +29,16 @@ defmodule QuizirWeb.QuizLive.Show do
 
   @impl true
   def handle_event("start_game", _params, socket) do
-    {:noreply,
-     socket
-     |> put_flash(:info, "Le moteur multijoueur sera initialisé dans la prochaine étape !")}
+    case Quizir.Games.create_game(socket.assigns.quiz) do
+      {:ok, %{code: code, host_token: host_token}} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Partie créée ! Code de salon : #{code}")
+         |> push_navigate(to: ~p"/games/#{code}?host_token=#{host_token}")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Impossible de démarrer la partie pour ce quiz.")}
+    end
   end
 
   @impl true
