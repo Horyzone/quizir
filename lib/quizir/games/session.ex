@@ -22,7 +22,11 @@ defmodule Quizir.Games.Session do
     timer_interval: 1000,
     pubsub: Quizir.PubSub,
     players: %{},
-    answers: %{}
+    answers: %{},
+    host_pids: %{},
+    host_registered?: false,
+    player_pids: %{},
+    monitor_refs: %{}
   ]
 
   # --- Client API ---
@@ -38,6 +42,18 @@ defmodule Quizir.Games.Session do
 
   def get_state(code_or_pid) do
     call(code_or_pid, :get_state)
+  end
+
+  def track_host(code_or_pid, pid) do
+    call(code_or_pid, {:track_host, pid})
+  end
+
+  def untrack_host(code_or_pid, pid) do
+    call(code_or_pid, {:untrack_host, pid})
+  end
+
+  def track_player(code_or_pid, player_id, pid) do
+    call(code_or_pid, {:track_player, player_id, pid})
   end
 
   def join_player(code_or_pid, name, opts \\ []) do
@@ -101,7 +117,11 @@ defmodule Quizir.Games.Session do
       timer_interval: timer_interval,
       pubsub: pubsub,
       players: %{},
-      answers: %{}
+      answers: %{},
+      host_pids: %{},
+      host_registered?: false,
+      player_pids: %{},
+      monitor_refs: %{}
     }
 
     {:ok, state}
@@ -113,48 +133,119 @@ defmodule Quizir.Games.Session do
   end
 
   @impl true
-  def handle_call({:join_player, name, _opts}, _from, %{status: :lobby} = state) do
+  def handle_call({:join_player, name, opts}, _from, %{status: :lobby} = state) do
     clean_name = String.trim(name || "")
 
-    cond do
-      clean_name == "" ->
-        {:reply, {:error, :invalid_name}, state}
+    if clean_name == "" do
+      {:reply, {:error, :invalid_name}, state}
+    else
+      existing_entry =
+        cond do
+          opts[:player_id] && Map.has_key?(state.players, opts[:player_id]) ->
+            {opts[:player_id], Map.get(state.players, opts[:player_id])}
 
-      true ->
-        player_id = generate_player_id()
+          true ->
+            Enum.find(state.players, fn {_id, p} ->
+              String.downcase(p.name) == String.downcase(clean_name)
+            end)
+        end
 
-        player = %{
-          id: player_id,
-          name: clean_name,
-          score: 0,
-          streak: 0
-        }
+      case existing_entry do
+        {existing_id, player} ->
+          new_state =
+            if pid = opts[:pid] do
+              track_player_process(state, existing_id, pid)
+            else
+              state
+            end
 
-        new_players = Map.put(state.players, player_id, player)
-        new_state = %{state | players: new_players}
+          {:reply, {:ok, player}, new_state}
 
-        broadcast(new_state, {:player_joined, player})
-        {:reply, {:ok, player}, new_state}
+        nil ->
+          player_id = generate_player_id()
+
+          player = %{
+            id: player_id,
+            name: clean_name,
+            score: 0,
+            streak: 0
+          }
+
+          new_players = Map.put(state.players, player_id, player)
+          new_state = %{state | players: new_players}
+
+          new_state =
+            if pid = opts[:pid] do
+              track_player_process(new_state, player_id, pid)
+            else
+              new_state
+            end
+
+          broadcast(new_state, {:player_joined, player})
+          {:reply, {:ok, player}, new_state}
+      end
     end
   end
 
-  def handle_call({:join_player, _name, _opts}, _from, state) do
-    {:reply, {:error, :game_already_started}, state}
+  def handle_call({:join_player, name, opts}, _from, state) do
+    clean_name = String.trim(name || "")
+
+    existing_entry =
+      Enum.find(state.players, fn {_id, p} ->
+        String.downcase(p.name) == String.downcase(clean_name)
+      end)
+
+    case existing_entry do
+      {existing_id, player} ->
+        new_state =
+          if pid = opts[:pid] do
+            track_player_process(state, existing_id, pid)
+          else
+            state
+          end
+
+        {:reply, {:ok, player}, new_state}
+
+      nil ->
+        {:reply, {:error, :game_already_started}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:track_host, pid}, _from, state) do
+    new_state = track_host_process(state, pid)
+    {:reply, :ok, new_state}
+  end
+
+  @impl true
+  def handle_call({:untrack_host, pid}, _from, state) do
+    new_state = untrack_host_process(state, pid)
+
+    if should_terminate_session?(new_state) do
+      {:stop, :normal, :ok, new_state}
+    else
+      {:reply, :ok, new_state}
+    end
+  end
+
+  @impl true
+  def handle_call({:track_player, player_id, pid}, _from, state) do
+    if Map.has_key?(state.players, player_id) do
+      new_state = track_player_process(state, player_id, pid)
+      {:reply, :ok, new_state}
+    else
+      {:reply, {:error, :player_not_found}, state}
+    end
   end
 
   @impl true
   def handle_call({:leave_player, player_id}, _from, state) do
-    if Map.has_key?(state.players, player_id) do
-      new_players = Map.delete(state.players, player_id)
-      new_state = %{state | players: new_players}
+    new_state = do_leave_player(player_id, state)
 
-      broadcast(new_state, {:player_left, player_id})
-
-      # Si on est en cours de question et que tous les joueurs restants ont répondu
-      new_state = maybe_finish_question_early(new_state)
-      {:reply, :ok, new_state}
+    if should_terminate_session?(new_state) do
+      {:stop, :normal, :ok, new_state}
     else
-      {:reply, :ok, state}
+      {:reply, :ok, new_state}
     end
   end
 
@@ -313,11 +404,145 @@ defmodule Quizir.Games.Session do
     end
   end
 
+  @impl true
+  def handle_info({:DOWN, ref, :process, pid, _reason}, state) do
+    case Map.get(state.monitor_refs, ref) do
+      {:host, ^pid} ->
+        new_state = untrack_host_process(state, pid)
+
+        if should_terminate_session?(new_state) do
+          {:stop, :normal, new_state}
+        else
+          {:noreply, new_state}
+        end
+
+      {:player, player_id} ->
+        new_state = do_leave_player(player_id, state)
+
+        if should_terminate_session?(new_state) do
+          {:stop, :normal, new_state}
+        else
+          {:noreply, new_state}
+        end
+
+      _other ->
+        {:noreply, state}
+    end
+  end
+
   def handle_info(:tick, state) do
     {:noreply, state}
   end
 
+  @impl true
+  def terminate(_reason, state) do
+    cancel_timer(state)
+    broadcast(state, {:session_terminated, "Cette session a pris fin."})
+    :ok
+  end
+
   # --- Internal Helpers ---
+
+  defp track_host_process(state, pid) when is_pid(pid) do
+    if Map.has_key?(state.host_pids, pid) do
+      %{state | host_registered?: true}
+    else
+      ref = Process.monitor(pid)
+
+      %{
+        state
+        | host_pids: Map.put(state.host_pids, pid, ref),
+          monitor_refs: Map.put(state.monitor_refs, ref, {:host, pid}),
+          host_registered?: true
+      }
+    end
+  end
+
+  defp track_host_process(state, _pid), do: state
+
+  defp untrack_host_process(state, pid) when is_pid(pid) do
+    case Map.pop(state.host_pids, pid) do
+      {nil, _pids} ->
+        state
+
+      {ref, pids} ->
+        Process.demonitor(ref, [:flush])
+        monitor_refs = Map.delete(state.monitor_refs, ref)
+        %{state | host_pids: pids, monitor_refs: monitor_refs}
+    end
+  end
+
+  defp untrack_host_process(state, _pid), do: state
+
+  defp track_player_process(state, player_id, pid) when is_pid(pid) do
+    state =
+      case Map.get(state.player_pids, player_id) do
+        {old_pid, _old_ref} when old_pid == pid ->
+          state
+
+        {_old_pid, old_ref} ->
+          Process.demonitor(old_ref, [:flush])
+
+          %{
+            state
+            | player_pids: Map.delete(state.player_pids, player_id),
+              monitor_refs: Map.delete(state.monitor_refs, old_ref)
+          }
+
+        nil ->
+          state
+      end
+
+    if Map.has_key?(state.player_pids, player_id) do
+      state
+    else
+      ref = Process.monitor(pid)
+
+      %{
+        state
+        | player_pids: Map.put(state.player_pids, player_id, {pid, ref}),
+          monitor_refs: Map.put(state.monitor_refs, ref, {:player, player_id})
+      }
+    end
+  end
+
+  defp track_player_process(state, _player_id, _pid), do: state
+
+  defp do_leave_player(player_id, state) do
+    if Map.has_key?(state.players, player_id) do
+      {player_pids, monitor_refs} =
+        case Map.pop(state.player_pids, player_id) do
+          {nil, pids} ->
+            {pids, state.monitor_refs}
+
+          {{_pid, ref}, pids} ->
+            Process.demonitor(ref, [:flush])
+            {pids, Map.delete(state.monitor_refs, ref)}
+        end
+
+      new_players = Map.delete(state.players, player_id)
+
+      new_state = %{
+        state
+        | players: new_players,
+          player_pids: player_pids,
+          monitor_refs: monitor_refs
+      }
+
+      broadcast(new_state, {:player_left, player_id})
+
+      maybe_finish_question_early(new_state)
+    else
+      state
+    end
+  end
+
+  defp should_terminate_session?(state) do
+    state.status == :lobby and
+      state.host_registered? and
+      map_size(state.host_pids) == 0 and
+      map_size(state.players) == 0
+  end
 
   defp schedule_tick(interval) do
     Process.send_after(self(), :tick, interval)

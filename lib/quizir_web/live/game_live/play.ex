@@ -10,15 +10,23 @@ defmodule QuizirWeb.GameLive.Play do
 
     case Games.get_game_state(code) do
       {:ok, game_state} ->
-        if connected?(socket) do
-          Phoenix.PubSub.subscribe(Quizir.PubSub, "game:#{code}")
-        end
-
         is_host = params["host_token"] != nil and params["host_token"] == game_state.host_token
         host_token = if is_host, do: params["host_token"], else: nil
 
         player_id = params["player_id"]
         current_player = if player_id, do: Map.get(game_state.players, player_id), else: nil
+
+        if connected?(socket) do
+          Phoenix.PubSub.subscribe(Quizir.PubSub, "game:#{code}")
+
+          if is_host do
+            Games.track_host(code, self())
+          end
+
+          if current_player do
+            Games.track_player(code, current_player.id, self())
+          end
+        end
 
         join_form =
           if not is_host and current_player == nil do
@@ -83,10 +91,27 @@ defmodule QuizirWeb.GameLive.Play do
     new_players = Map.delete(socket.assigns.players, player_id)
     leaderboard = Session.build_leaderboard(new_players)
 
+    socket =
+      if socket.assigns.current_player && socket.assigns.current_player.id == player_id do
+        socket
+        |> assign(:current_player, nil)
+        |> put_flash(:info, "Vous avez quitté le salon de jeu.")
+      else
+        socket
+      end
+
     {:noreply,
      socket
      |> assign(:players, new_players)
      |> assign(:leaderboard, leaderboard)}
+  end
+
+  @impl true
+  def handle_info({:session_terminated, message}, socket) do
+    {:noreply,
+     socket
+     |> put_flash(:info, message)
+     |> push_navigate(to: ~p"/games")}
   end
 
   @impl true
@@ -166,48 +191,56 @@ defmodule QuizirWeb.GameLive.Play do
 
   @impl true
   def handle_event("inline_join", %{"name" => name}, socket) do
-    clean_name = String.trim(name || "")
+    if socket.assigns[:current_player] != nil do
+      {:noreply, socket}
+    else
+      clean_name = String.trim(name || "")
 
-    case Games.join_game(socket.assigns.code, clean_name) do
-      {:ok, player} ->
-        {:noreply,
-         socket
-         |> assign(:current_player, player)
-         |> assign(:join_form, nil)
-         |> assign(:join_error, nil)
-         |> put_flash(:info, "Vous avez rejoint la partie !")}
+      case Games.join_game(socket.assigns.code, clean_name, pid: self()) do
+        {:ok, player} ->
+          {:noreply,
+           socket
+           |> assign(:current_player, player)
+           |> assign(:join_form, nil)
+           |> assign(:join_error, nil)
+           |> put_flash(:info, "Vous avez rejoint la partie !")}
 
-      {:error, :game_already_started} ->
-        {:noreply, assign(socket, :join_error, "La partie a déjà commencé.")}
+        {:error, :game_already_started} ->
+          {:noreply, assign(socket, :join_error, "La partie a déjà commencé.")}
 
-      {:error, :invalid_name} ->
-        {:noreply, assign(socket, :join_error, "Veuillez entrer un pseudo valide.")}
+        {:error, :invalid_name} ->
+          {:noreply, assign(socket, :join_error, "Veuillez entrer un pseudo valide.")}
 
-      {:error, _} ->
-        {:noreply, assign(socket, :join_error, "Impossible de rejoindre ce salon.")}
+        {:error, _} ->
+          {:noreply, assign(socket, :join_error, "Impossible de rejoindre ce salon.")}
+      end
     end
   end
 
   @impl true
   def handle_event("host_join", %{"nickname" => nickname}, socket) do
-    clean_name = String.trim(nickname || "")
-
-    if clean_name != "" do
-      case Games.join_game(socket.assigns.code, clean_name) do
-        {:ok, player} ->
-          {:noreply,
-           socket
-           |> assign(:current_player, player)
-           |> put_flash(:info, "Vous participez désormais au quiz en tant que joueur !")}
-
-        {:error, :game_already_started} ->
-          {:noreply, put_flash(socket, :error, "La partie a déjà commencé.")}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Impossible de rejoindre la partie.")}
-      end
+    if socket.assigns[:current_player] != nil do
+      {:noreply, socket}
     else
-      {:noreply, put_flash(socket, :error, "Veuillez entrer un pseudo valide.")}
+      clean_name = String.trim(nickname || "")
+
+      if clean_name != "" do
+        case Games.join_game(socket.assigns.code, clean_name, pid: self()) do
+          {:ok, player} ->
+            {:noreply,
+             socket
+             |> assign(:current_player, player)
+             |> put_flash(:info, "Vous participez désormais au quiz en tant que joueur !")}
+
+          {:error, :game_already_started} ->
+            {:noreply, put_flash(socket, :error, "La partie a déjà commencé.")}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, "Impossible de rejoindre la partie.")}
+        end
+      else
+        {:noreply, put_flash(socket, :error, "Veuillez entrer un pseudo valide.")}
+      end
     end
   end
 
@@ -266,6 +299,19 @@ defmodule QuizirWeb.GameLive.Play do
     end
   end
 
+  @impl true
+  def terminate(_reason, socket) do
+    if socket.assigns[:current_player] do
+      Games.leave_game(socket.assigns.code, socket.assigns.current_player.id)
+    end
+
+    if socket.assigns[:is_host] do
+      Games.untrack_host(socket.assigns.code, self())
+    end
+
+    :ok
+  end
+
   # --- Render Template ---
 
   @impl true
@@ -300,6 +346,18 @@ defmodule QuizirWeb.GameLive.Play do
                 <.icon name="hero-user" class="size-3" /> {@current_player.name}
                 <span class="badge badge-sm badge-ghost ml-1 font-mono">{@current_player.score} pts</span>
               </div>
+            <% end %>
+
+            <%= if @status == :lobby do %>
+              <.link
+                id="leave-lobby-btn"
+                navigate={~p"/games"}
+                class="btn btn-ghost btn-xs text-base-content/60 hover:text-error gap-1 ml-1"
+                title="Quitter la session"
+              >
+                <.icon name="hero-arrow-left-on-rectangle" class="size-3.5" />
+                <span class="hidden sm:inline">Quitter</span>
+              </.link>
             <% end %>
           </div>
         </div>

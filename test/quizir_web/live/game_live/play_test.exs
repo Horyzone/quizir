@@ -180,5 +180,116 @@ defmodule QuizirWeb.GameLive.PlayTest do
       assert has_element?(host_view, "#finished-screen")
       assert has_element?(host_view, "#podium-1st", "MoiLeHost")
     end
+
+    test "re-submitting inline join does not create duplicate player", %{conn: conn} do
+      game = create_game_with_questions()
+
+      {:ok, view, _html} = live(conn, ~p"/games/#{game.code}")
+
+      # First join
+      view
+      |> form("#inline-join-form", %{"name" => "SuperJoueur"})
+      |> render_submit()
+
+      assert has_element?(view, "#player-status-badge", "SuperJoueur")
+
+      # Try to join again with same name via Games context
+      {:ok, player2} = Games.join_game(game.code, "SuperJoueur")
+      {:ok, state} = Games.get_game_state(game.code)
+
+      assert map_size(state.players) == 1
+      assert player2.name == "SuperJoueur"
+    end
+
+    test "host joining does not generate multiple player slots", %{conn: conn} do
+      game = create_game_with_questions()
+
+      {:ok, host_view, _} = live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+
+      host_view
+      |> form("#host-join-card form", %{"nickname" => "CaptainHost"})
+      |> render_submit()
+
+      assert has_element?(host_view, "#player-status-badge", "CaptainHost")
+      refute has_element?(host_view, "#host-join-card")
+
+      # Another join attempt with same name
+      {:ok, re_player} = Games.join_game(game.code, "CaptainHost")
+      {:ok, state} = Games.get_game_state(game.code)
+
+      assert map_size(state.players) == 1
+      assert re_player.name == "CaptainHost"
+    end
+
+    test "when a player leaves the page, they are automatically expelled", %{conn: conn} do
+      game = create_game_with_questions()
+
+      {:ok, host_view, _} = live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+
+      {:ok, player} = Games.join_game(game.code, "JoueurEphemere")
+
+      {:ok, player_view, _} =
+        live(conn, ~p"/games/#{game.code}?player_id=#{player.id}&name=JoueurEphemere")
+
+      assert has_element?(host_view, "#player-badge-#{player.id}")
+      {:ok, state} = Games.get_game_state(game.code)
+      assert map_size(state.players) == 1
+
+      # Player leaves the page (LiveView process stopped)
+      GenServer.stop(player_view.pid)
+
+      _ = :sys.get_state(Games.Session.via_tuple(game.code))
+
+      {:ok, state_after} = Games.get_game_state(game.code)
+      assert map_size(state_after.players) == 0
+      refute has_element?(host_view, "#player-badge-#{player.id}")
+    end
+
+    test "when host leaves before game start and no players remain, session terminates", %{
+      conn: conn
+    } do
+      game = create_game_with_questions()
+
+      {:ok, host_view, _} = live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+
+      assert Games.game_exists?(game.code)
+
+      # Host leaves the page
+      [{session_pid, _}] = Registry.lookup(Quizir.Games.SessionRegistry, game.code)
+      ref = Process.monitor(session_pid)
+      GenServer.stop(host_view.pid)
+
+      assert_receive {:DOWN, ^ref, :process, ^session_pid, :normal}
+
+      refute Games.game_exists?(game.code)
+      assert {:error, :not_found} = Games.get_game_state(game.code)
+    end
+
+    test "leave lobby button navigates away and expels player", %{conn: conn} do
+      game = create_game_with_questions()
+
+      {:ok, host_view, _} = live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+
+      {:ok, player} = Games.join_game(game.code, "Partant")
+
+      {:ok, player_view, _} =
+        live(conn, ~p"/games/#{game.code}?player_id=#{player.id}&name=Partant")
+
+      assert has_element?(player_view, "#leave-lobby-btn")
+
+      {:ok, _games_view, html} =
+        player_view
+        |> element("#leave-lobby-btn")
+        |> render_click()
+        |> follow_redirect(conn, ~p"/games")
+
+      assert html =~ "Parties en cours"
+
+      _ = :sys.get_state(Games.Session.via_tuple(game.code))
+
+      {:ok, state} = Games.get_game_state(game.code)
+      assert map_size(state.players) == 0
+      refute has_element?(host_view, "#player-badge-#{player.id}")
+    end
   end
 end

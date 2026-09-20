@@ -92,6 +92,88 @@ defmodule Quizir.Games.SessionTest do
       assert player.name == "Alice"
     end
 
+    test "does not add duplicate players when joining with the same name" do
+      %{pid: pid} = start_session()
+
+      assert {:ok, player1} = Session.join_player(pid, "Alice")
+      assert {:ok, player2} = Session.join_player(pid, "Alice")
+      assert {:ok, player3} = Session.join_player(pid, "alice")
+
+      assert player1.id == player2.id
+      assert player1.id == player3.id
+
+      state = Session.get_state(pid)
+      assert map_size(state.players) == 1
+    end
+
+    test "automatically expels player when their process dies" do
+      %{pid: pid} = start_session()
+
+      task = Task.async(fn -> :timer.sleep(50) end)
+      {:ok, player} = Session.join_player(pid, "Charlie", pid: task.pid)
+
+      state = Session.get_state(pid)
+      assert map_size(state.players) == 1
+      assert Map.has_key?(state.players, player.id)
+
+      Task.await(task)
+      _ = :sys.get_state(pid)
+
+      state_after = Session.get_state(pid)
+      assert map_size(state_after.players) == 0
+      refute Map.has_key?(state_after.players, player.id)
+    end
+
+    test "terminates session when host leaves before game start and 0 players remain" do
+      %{pid: pid} = start_session()
+      ref = Process.monitor(pid)
+
+      host_task = Task.async(fn -> :timer.sleep(50) end)
+      :ok = Session.track_host(pid, host_task.pid)
+
+      Task.await(host_task)
+
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+    end
+
+    test "keeps session alive if players remain after host leaves, then terminates when all leave" do
+      %{pid: pid} = start_session()
+      session_ref = Process.monitor(pid)
+
+      host_task = Task.async(fn -> :timer.sleep(40) end)
+      :ok = Session.track_host(pid, host_task.pid)
+
+      player_task = Task.async(fn -> :timer.sleep(120) end)
+      {:ok, _player} = Session.join_player(pid, "David", pid: player_task.pid)
+
+      Task.await(host_task)
+      _ = :sys.get_state(pid)
+
+      state = Session.get_state(pid)
+      assert map_size(state.players) == 1
+
+      Task.await(player_task)
+
+      assert_receive {:DOWN, ^session_ref, :process, ^pid, :normal}
+    end
+
+    test "keeps session alive if host leaves after game was started" do
+      %{pid: pid, host_token: host_token} = start_session()
+      _session_ref = Process.monitor(pid)
+
+      host_task = Task.async(fn -> :timer.sleep(40) end)
+      :ok = Session.track_host(pid, host_task.pid)
+
+      {:ok, _player} = Session.join_player(pid, "Eve")
+      :ok = Session.start_game(pid, host_token)
+
+      Task.await(host_task)
+      _ = :sys.get_state(pid)
+
+      state = Session.get_state(pid)
+      assert state.status == :question
+    end
+
     test "records session visibility (public or private)" do
       quiz = sample_quiz()
       code_pub = "PUB123"

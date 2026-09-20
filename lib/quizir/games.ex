@@ -101,6 +101,45 @@ defmodule Quizir.Games do
   end
 
   @doc """
+  Enregistre la présence du processus hôte pour surveiller sa déconnexion.
+  """
+  def track_host(code, pid) do
+    if game_exists?(code) do
+      Session.track_host(code, pid)
+    else
+      :ok
+    end
+  catch
+    :exit, _ -> :ok
+  end
+
+  @doc """
+  Désenregistre la présence du processus hôte.
+  """
+  def untrack_host(code, pid) do
+    if game_exists?(code) do
+      Session.untrack_host(code, pid)
+    else
+      :ok
+    end
+  catch
+    :exit, _ -> :ok
+  end
+
+  @doc """
+  Associe le processus LiveView à un joueur pour le retirer en cas de déconnexion.
+  """
+  def track_player(code, player_id, pid) do
+    if game_exists?(code) do
+      Session.track_player(code, player_id, pid)
+    else
+      :ok
+    end
+  catch
+    :exit, _ -> :ok
+  end
+
+  @doc """
   Retire un joueur du salon.
   """
   def leave_game(code, player_id) do
@@ -112,6 +151,8 @@ defmodule Quizir.Games do
   catch
     :exit, _ -> :ok
   end
+
+  def leave_player(code, player_id), do: leave_game(code, player_id)
 
   @doc """
   Démarre la partie depuis le salon (réservé à l'hôte).
