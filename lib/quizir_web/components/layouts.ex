@@ -42,7 +42,7 @@ defmodule QuizirWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-200 bg-base-100/80 backdrop-blur sticky top-0 z-40">
       <div class="flex-1">
         <.link navigate={~p"/"} class="flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="32" />
+          <img src={~p"/images/logo.svg"} width="32" height="32" alt="Quizir" class="rounded-lg" />
           <span class="text-xl font-black tracking-tight text-primary">Quizir</span>
         </.link>
       </div>

@@ -103,10 +103,8 @@ defmodule QuizirWeb.HomeLive do
       <section class="relative pt-6 sm:pt-12 text-center lg:text-left">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div class="lg:col-span-7 space-y-6">
-            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold tracking-wide uppercase">
-              <.icon name="hero-sparkles" class="size-4" />
-              <span>Multijoueur en temps réel</span>
-            </div>
+
+          <img src={~p"/images/logo.svg"} alt="Quizir Logo" class="mx-auto lg:mx-0" />
 
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-base-content leading-[1.1]">
               Défiez vos amis avec des <span class="text-primary underline decoration-primary/30 decoration-wavy">quiz en direct</span>.
@@ -482,7 +480,7 @@ defmodule QuizirWeb.HomeLive do
       <!-- 7. Footer -->
       <footer class="pt-12 pb-6 border-t border-base-200 text-xs text-base-content/50 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-2 font-bold text-base text-base-content">
-          <img src={~p"/images/logo.svg"} width="24" />
+          <img src={~p"/images/logo.svg"} width="24" height="24" alt="Quizir" class="rounded-md" />
           <span>Quizir</span>
         </div>
         <div class="flex items-center gap-6">
