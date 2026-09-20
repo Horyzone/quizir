@@ -135,5 +135,20 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
 
       assert redirect_path =~ ~r"/quizzes/\d+/edit"
     end
+
+    test "launches game directly from quiz card", %{conn: conn, quiz: quiz} do
+      {:ok, view, _html} = live(conn, ~p"/my-quizzes")
+
+      assert has_element?(view, "#start-game-btn-#{quiz.id}")
+
+      {:ok, game_live, _html} =
+        view
+        |> element("#start-game-btn-#{quiz.id}")
+        |> render_click()
+        |> follow_redirect(conn)
+
+      assert has_element?(game_live, "#host-badge")
+      assert has_element?(game_live, "#lobby-screen")
+    end
   end
 end

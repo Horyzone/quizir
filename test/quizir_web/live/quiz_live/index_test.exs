@@ -114,5 +114,41 @@ defmodule QuizirWeb.QuizLive.IndexTest do
 
       assert html =~ "Quiz dupliqué avec succès !"
     end
+
+    test "user can start public game directly from quiz card", %{conn: conn} do
+      owner = user_fixture()
+      quiz = quiz_fixture(%{title: "Quiz Direct Play", visibility: "public", user_id: owner.id})
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes")
+
+      assert has_element?(view, "#start-game-btn-#{quiz.id}")
+
+      {:ok, game_live, _html} =
+        view
+        |> element("#start-game-btn-#{quiz.id}")
+        |> render_click()
+        |> follow_redirect(conn)
+
+      assert has_element?(game_live, "#host-badge")
+      assert has_element?(game_live, "#lobby-screen")
+    end
+
+    test "user can start private game directly from quiz card dropdown", %{conn: conn} do
+      owner = user_fixture()
+      quiz = quiz_fixture(%{title: "Quiz Secret Direct", visibility: "public", user_id: owner.id})
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes")
+
+      assert has_element?(view, "#launch-private-session-btn-#{quiz.id}")
+
+      {:ok, game_live, _html} =
+        view
+        |> element("#launch-private-session-btn-#{quiz.id}")
+        |> render_click()
+        |> follow_redirect(conn)
+
+      assert has_element?(game_live, "#host-badge")
+      assert has_element?(game_live, "#lobby-screen")
+    end
   end
 end

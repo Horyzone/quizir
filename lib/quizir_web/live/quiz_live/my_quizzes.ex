@@ -73,6 +73,36 @@ defmodule QuizirWeb.QuizLive.MyQuizzes do
     end
   end
 
+  @impl true
+  def handle_event("start_game", %{"id" => id} = params, socket) do
+    quiz = Quizzes.get_quiz_with_details!(id)
+    user = socket.assigns.current_user
+
+    can_start? =
+      quiz.visibility == "public" or Quizzes.can_manage_quiz?(quiz, user)
+
+    if can_start? do
+      default_vis = if quiz.visibility == "private", do: "private", else: "public"
+      visibility = params["visibility"] || default_vis
+
+      case Quizir.Games.create_game(quiz, visibility: visibility) do
+        {:ok, %{code: code, host_token: host_token}} ->
+          vis_label = if visibility == "public", do: "publique", else: "privée"
+
+          {:noreply,
+           socket
+           |> put_flash(:info, "Partie #{vis_label} créée ! Code de salon : #{code}")
+           |> push_navigate(to: ~p"/games/#{code}?host_token=#{host_token}")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Impossible de démarrer la partie pour ce quiz.")}
+      end
+    else
+      {:noreply,
+       put_flash(socket, :error, "Ce quiz est privé. Seul son créateur peut lancer une partie.")}
+    end
+  end
+
   defp normalize_filter(filter) when filter in ["public", "private"], do: filter
   defp normalize_filter(_), do: "all"
 
@@ -258,13 +288,84 @@ defmodule QuizirWeb.QuizLive.MyQuizzes do
               </div>
 
               <div class="flex items-center justify-between gap-2 flex-wrap">
-                <.link
-                  navigate={~p"/quizzes/#{quiz}"}
-                  id={"play-quiz-#{quiz.id}-btn"}
-                  class="btn btn-primary btn-xs font-bold gap-1.5"
-                >
-                  <.icon name="hero-play" class="size-3.5" /> Lancer
-                </.link>
+                <div class="flex items-center gap-1.5">
+                  <div class="join shadow-xs">
+                    <button
+                      type="button"
+                      id={"start-game-btn-#{quiz.id}"}
+                      phx-click="start_game"
+                      phx-value-id={quiz.id}
+                      phx-value-visibility={
+                        if quiz.visibility == "private", do: "private", else: "public"
+                      }
+                      class="btn btn-xs btn-primary join-item gap-1 font-bold"
+                      title="Lancer une partie"
+                    >
+                      <.icon name="hero-play" class="size-3.5" /> Lancer
+                    </button>
+                    <div class="dropdown dropdown-top sm:dropdown-bottom dropdown-start join-item">
+                      <div
+                        tabindex="0"
+                        role="button"
+                        id={"start-game-menu-btn-#{quiz.id}"}
+                        class="btn btn-xs btn-primary join-item px-1 border-l border-primary-content/20"
+                        aria-label="Options de lancement"
+                      >
+                        <.icon name="hero-chevron-down" class="size-3" />
+                      </div>
+                      <ul
+                        tabindex="0"
+                        class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-60 border border-base-200 mt-1 z-50 space-y-1"
+                      >
+                        <li class="menu-title px-2 py-1 text-[11px] text-base-content/50 font-bold">
+                          Mode de la session
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            id={"launch-public-session-btn-#{quiz.id}"}
+                            phx-click="start_game"
+                            phx-value-id={quiz.id}
+                            phx-value-visibility="public"
+                            class="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-base-200"
+                          >
+                            <.icon name="hero-globe-alt" class="size-4 text-emerald-500 shrink-0" />
+                            <div>
+                              <div class="font-bold text-xs text-base-content">Partie Publique</div>
+                              <span class="text-[10px] text-base-content/60 block">Sans code PIN</span>
+                            </div>
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            id={"launch-private-session-btn-#{quiz.id}"}
+                            phx-click="start_game"
+                            phx-value-id={quiz.id}
+                            phx-value-visibility="private"
+                            class="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-base-200"
+                          >
+                            <.icon name="hero-lock-closed" class="size-4 text-amber-500 shrink-0" />
+                            <div>
+                              <div class="font-bold text-xs text-base-content">Partie Privée</div>
+                              <span class="text-[10px] text-base-content/60 block">Code PIN obligatoire</span>
+                            </div>
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <.link
+                    navigate={~p"/quizzes/#{quiz}"}
+                    id={"view-quiz-#{quiz.id}-btn"}
+                    class="btn btn-xs btn-ghost gap-1 text-base-content/70 hover:text-base-content"
+                    title="Voir les détails"
+                  >
+                    <.icon name="hero-eye" class="size-3.5" />
+                    <span class="hidden sm:inline">Détails</span>
+                  </.link>
+                </div>
 
                 <div class="flex items-center gap-1">
                   <.link

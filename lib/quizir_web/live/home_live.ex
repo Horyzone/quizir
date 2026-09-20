@@ -84,6 +84,25 @@ defmodule QuizirWeb.HomeLive do
   end
 
   @impl true
+  def handle_event("start_game", %{"id" => id} = params, socket) do
+    quiz = Quizzes.get_quiz_with_details!(id)
+    visibility = params["visibility"] || "public"
+
+    case Quizir.Games.create_game(quiz, visibility: visibility) do
+      {:ok, %{code: code, host_token: host_token}} ->
+        vis_label = if visibility == "public", do: "publique", else: "privée"
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Partie #{vis_label} créée ! Code de salon : #{code}")
+         |> push_navigate(to: ~p"/games/#{code}?host_token=#{host_token}")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Impossible de démarrer la partie pour ce quiz.")}
+    end
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app
@@ -373,12 +392,23 @@ defmodule QuizirWeb.HomeLive do
                 </div>
 
                 <div class="pt-3 border-t border-base-200 flex items-center justify-between">
-                  <.link
-                    navigate={~p"/quizzes/#{quiz}"}
-                    class="btn btn-xs btn-primary gap-1 font-semibold"
-                  >
-                    <.icon name="hero-play" class="size-3" /> Jouer / Détails
-                  </.link>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      id={"home-start-game-btn-#{quiz.id}"}
+                      phx-click="start_game"
+                      phx-value-id={quiz.id}
+                      class="btn btn-xs btn-primary gap-1 font-bold"
+                    >
+                      <.icon name="hero-play" class="size-3" /> Lancer
+                    </button>
+                    <.link
+                      navigate={~p"/quizzes/#{quiz}"}
+                      class="btn btn-xs btn-ghost text-xs gap-1 text-base-content/70 hover:text-base-content"
+                    >
+                      <.icon name="hero-eye" class="size-3" /> Détails
+                    </.link>
+                  </div>
 
                   <.link
                     navigate={~p"/quizzes/#{quiz}"}
