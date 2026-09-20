@@ -137,4 +137,74 @@ defmodule Quizir.AccountsTest do
                end)
     end
   end
+
+  describe "update_user_email/2" do
+    test "updates user email with valid email" do
+      user = user_fixture()
+      new_email = "new_email@example.com"
+
+      assert {:ok, updated_user} = Accounts.update_user_email(user, %{email: new_email})
+      assert updated_user.email == new_email
+    end
+
+    test "allows setting email to empty string, which becomes nil" do
+      user = user_fixture(%{email: "test@example.com"})
+
+      assert {:ok, updated_user} = Accounts.update_user_email(user, %{email: ""})
+      assert updated_user.email == nil
+    end
+
+    test "returns error with invalid email format" do
+      user = user_fixture()
+
+      assert {:error, changeset} = Accounts.update_user_email(user, %{email: "invalid-email"})
+      assert "doit être une adresse email valide" in errors_on(changeset).email
+    end
+  end
+
+  describe "update_user_password/2" do
+    test "updates password with valid current_password and new password" do
+      user = user_fixture()
+      old_password = valid_password()
+      new_password = "a_brand_new_secret"
+
+      assert {:ok, updated_user} =
+               Accounts.update_user_password(user, %{
+                 "current_password" => old_password,
+                 "password" => new_password,
+                 "password_confirmation" => new_password
+               })
+
+      assert User.valid_password?(updated_user, new_password)
+      refute User.valid_password?(updated_user, old_password)
+    end
+
+    test "returns error when current_password is wrong" do
+      user = user_fixture()
+      new_password = "a_brand_new_secret"
+
+      assert {:error, changeset} =
+               Accounts.update_user_password(user, %{
+                 "current_password" => "wrong_password",
+                 "password" => new_password,
+                 "password_confirmation" => new_password
+               })
+
+      assert "est incorrect" in errors_on(changeset).current_password
+    end
+
+    test "returns error when password_confirmation does not match" do
+      user = user_fixture()
+      old_password = valid_password()
+
+      assert {:error, changeset} =
+               Accounts.update_user_password(user, %{
+                 "current_password" => old_password,
+                 "password" => "new_secret_1",
+                 "password_confirmation" => "mismatching_secret"
+               })
+
+      assert "ne correspond pas au mot de passe" in errors_on(changeset).password_confirmation
+    end
+  end
 end

@@ -103,8 +103,7 @@ defmodule QuizirWeb.HomeLive do
       <section class="relative pt-6 sm:pt-12 text-center lg:text-left">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div class="lg:col-span-7 space-y-6">
-
-          <img src={~p"/images/logo.svg"} alt="Quizir Logo" class="mx-auto lg:mx-0" />
+            <img src={~p"/images/logo.svg"} alt="Quizir Logo" class="mx-auto lg:mx-0" />
 
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-base-content leading-[1.1]">
               Défiez vos amis avec des <span class="text-primary underline decoration-primary/30 decoration-wavy">quiz en direct</span>.
@@ -483,10 +482,12 @@ defmodule QuizirWeb.HomeLive do
           <img src={~p"/images/logo.svg"} width="24" height="24" alt="Quizir" class="rounded-md" />
           <span>Quizir</span>
         </div>
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-6 flex-wrap">
           <.link navigate={~p"/quizzes"} class="hover:underline">Quiz disponibles</.link>
           <.link navigate={~p"/join"} class="hover:underline">Rejoindre une partie</.link>
           <%= if @current_scope && @current_scope.user do %>
+            <.link navigate={~p"/my-quizzes"} class="hover:underline">Mes quiz</.link>
+            <.link navigate={~p"/users/settings"} class="hover:underline">Mon compte</.link>
             <.link navigate={~p"/quizzes/new"} class="hover:underline">Créer un quiz</.link>
           <% else %>
             <.link navigate={~p"/users/log_in"} class="hover:underline">Connexion</.link>

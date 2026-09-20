@@ -53,6 +53,13 @@ defmodule QuizirWeb.Layouts do
               Quiz
             </.link>
           </li>
+          <%= if @current_scope && @current_scope.user do %>
+            <li class="hidden sm:block">
+              <.link navigate={~p"/my-quizzes"} class="btn btn-ghost btn-sm font-medium">
+                Mes quiz
+              </.link>
+            </li>
+          <% end %>
           <li>
             <.link navigate={~p"/join"} class="btn btn-primary btn-sm font-bold gap-1 shadow-sm">
               <.icon name="hero-play" class="size-4" /> Rejoindre
@@ -73,15 +80,33 @@ defmodule QuizirWeb.Layouts do
               </div>
               <ul
                 tabindex="0"
-                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-48 border border-base-200 mt-2 z-50"
+                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
               >
                 <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
                   Connecté en tant que
                   <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
                 </li>
                 <li>
+                  <.link
+                    navigate={~p"/my-quizzes"}
+                    id="nav-my-quizzes-btn"
+                    class="text-xs font-semibold"
+                  >
+                    <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
+                  </.link>
+                </li>
+                <li>
                   <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold">
                     <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link
+                    navigate={~p"/users/settings"}
+                    id="nav-settings-btn"
+                    class="text-xs font-semibold"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
                   </.link>
                 </li>
                 <div class="divider my-1"></div>

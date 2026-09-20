@@ -6,6 +6,8 @@ defmodule Quizir.Accounts.User do
     field :username, :string
     field :email, :string
     field :password, :string, virtual: true, redact: true
+    field :current_password, :string, virtual: true, redact: true
+    field :password_confirmation, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
 
     has_many :quizzes, Quizir.Quizzes.Quiz, on_delete: :nilify_all
@@ -42,6 +44,32 @@ defmodule Quizir.Accounts.User do
     user
     |> cast(attrs, [:password])
     |> validate_password(opts)
+  end
+
+  @doc """
+  A user changeset for changing password with current password verification.
+  """
+  def password_update_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:password, :password_confirmation, :current_password])
+    |> validate_required([:current_password, :password])
+    |> validate_confirmation(:password, message: "ne correspond pas au mot de passe")
+    |> validate_password(opts)
+    |> validate_current_password()
+  end
+
+  defp validate_current_password(changeset) do
+    current_password = get_change(changeset, :current_password)
+
+    if current_password && valid_password?(changeset.data, current_password) do
+      changeset
+    else
+      if current_password do
+        add_error(changeset, :current_password, "est incorrect")
+      else
+        changeset
+      end
+    end
   end
 
   defp validate_username(changeset) do

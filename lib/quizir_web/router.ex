@@ -40,6 +40,8 @@ defmodule QuizirWeb.Router do
       on_mount: [{QuizirWeb.UserAuth, :ensure_authenticated}] do
       live "/quizzes/new", QuizLive.Form, :new
       live "/quizzes/:id/edit", QuizLive.Form, :edit
+      live "/my-quizzes", QuizLive.MyQuizzes, :index
+      live "/users/settings", UserSettingsLive, :edit
     end
   end
 

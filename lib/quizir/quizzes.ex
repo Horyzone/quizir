@@ -23,6 +23,60 @@ defmodule Quizir.Quizzes do
   end
 
   @doc """
+  Returns the list of quizzes created by a specific user with an optional visibility filter.
+  Allowed filter values: "all", "public", "private" (or atoms :all, :public, :private).
+  """
+  def list_user_quizzes(user, filter \\ "all")
+
+  def list_user_quizzes(%Quizir.Accounts.User{id: user_id}, filter) do
+    list_user_quizzes(user_id, filter)
+  end
+
+  def list_user_quizzes(user_id, filter) do
+    query =
+      from q in Quiz,
+        where: q.user_id == ^user_id,
+        order_by: [desc: q.inserted_at, desc: q.id],
+        preload: [:user, :questions]
+
+    query =
+      case to_string(filter) do
+        "public" -> from q in query, where: q.visibility == "public"
+        "private" -> from q in query, where: q.visibility == "private"
+        _ -> query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Returns quiz counts (total, public, private) for a given user.
+  """
+  def count_user_quizzes_by_visibility(%Quizir.Accounts.User{id: user_id}) do
+    count_user_quizzes_by_visibility(user_id)
+  end
+
+  def count_user_quizzes_by_visibility(user_id) do
+    counts =
+      from(q in Quiz,
+        where: q.user_id == ^user_id,
+        group_by: q.visibility,
+        select: {q.visibility, count(q.id)}
+      )
+      |> Repo.all()
+      |> Map.new()
+
+    public_count = Map.get(counts, "public", 0)
+    private_count = Map.get(counts, "private", 0)
+
+    %{
+      total: public_count + private_count,
+      public: public_count,
+      private: private_count
+    }
+  end
+
+  @doc """
   Gets a single quiz.
 
   Raises `Ecto.NoResultsError` if the Quiz does not exist.

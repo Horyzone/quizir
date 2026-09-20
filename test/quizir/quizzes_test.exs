@@ -96,6 +96,42 @@ defmodule Quizir.QuizzesTest do
       quiz = quiz_fixture()
       assert %Ecto.Changeset{} = Quizzes.change_quiz(quiz)
     end
+
+    test "list_user_quizzes/2 filters by user and visibility" do
+      user1 = Quizir.AccountsFixtures.user_fixture()
+      user2 = Quizir.AccountsFixtures.user_fixture()
+
+      quiz_pub1 = quiz_fixture(%{user: user1, title: "Public User1", visibility: "public"})
+      quiz_priv1 = quiz_fixture(%{user: user1, title: "Private User1", visibility: "private"})
+      _quiz_pub2 = quiz_fixture(%{user: user2, title: "Public User2", visibility: "public"})
+
+      # Tous les quiz de user1
+      all_user1 = Quizzes.list_user_quizzes(user1, "all")
+      all_ids = Enum.map(all_user1, & &1.id)
+      assert quiz_pub1.id in all_ids
+      assert quiz_priv1.id in all_ids
+      assert length(all_user1) == 2
+
+      # Uniquement les quiz publics de user1
+      pub_user1 = Quizzes.list_user_quizzes(user1, "public")
+      assert Enum.map(pub_user1, & &1.id) == [quiz_pub1.id]
+
+      # Uniquement les quiz privés de user1
+      priv_user1 = Quizzes.list_user_quizzes(user1, "private")
+      assert Enum.map(priv_user1, & &1.id) == [quiz_priv1.id]
+    end
+
+    test "count_user_quizzes_by_visibility/1 returns accurate counts" do
+      user = Quizir.AccountsFixtures.user_fixture()
+
+      assert Quizzes.count_user_quizzes_by_visibility(user) == %{total: 0, public: 0, private: 0}
+
+      _q1 = quiz_fixture(%{user: user, visibility: "public"})
+      _q2 = quiz_fixture(%{user: user, visibility: "public"})
+      _q3 = quiz_fixture(%{user: user, visibility: "private"})
+
+      assert Quizzes.count_user_quizzes_by_visibility(user) == %{total: 3, public: 2, private: 1}
+    end
   end
 
   describe "questions" do

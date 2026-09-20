@@ -188,4 +188,20 @@ defmodule Quizir.Accounts do
   def change_user_email(%User{} = user, attrs \\ %{}) do
     User.email_changeset(user, attrs)
   end
+
+  @doc """
+  Updates the user password after validating the current password.
+  """
+  def update_user_password(%User{} = user, attrs) do
+    user
+    |> User.password_update_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns a changeset for updating the user password in account settings.
+  """
+  def change_user_password_update(%User{} = user, attrs \\ %{}) do
+    User.password_update_changeset(user, attrs, hash_password: false)
+  end
 end
