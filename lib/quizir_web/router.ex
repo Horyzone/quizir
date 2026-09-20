@@ -18,6 +18,10 @@ defmodule QuizirWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+
+    # Routes Quizir
+    live "/quizzes", QuizLive.Index, :index
+    live "/quizzes/new", QuizLive.Form, :new
   end
 
   # Other scopes may use custom stacks.

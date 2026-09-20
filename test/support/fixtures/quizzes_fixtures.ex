@@ -14,7 +14,7 @@ defmodule Quizir.QuizzesFixtures do
         access_code: "some access_code",
         description: "some description",
         title: "some title",
-        visibility: "some visibility"
+        visibility: "public"
       })
       |> Quizir.Quizzes.create_quiz()
 

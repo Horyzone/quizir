@@ -20,6 +20,8 @@ defmodule Quizir.Quizzes.Quiz do
     |> validate_required([:title, :visibility])
     |> validate_inclusion(:visibility, ["public", "private"])
     |> validate_access_code_if_private()
+    # Permet de recevoir et valider les questions liées
+    |> cast_assoc(:questions, with: &Quizir.Quizzes.Question.changeset/2)
   end
 
   defp validate_access_code_if_private(changeset) do

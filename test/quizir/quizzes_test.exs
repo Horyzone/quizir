@@ -21,12 +21,17 @@ defmodule Quizir.QuizzesTest do
     end
 
     test "create_quiz/1 with valid data creates a quiz" do
-      valid_attrs = %{description: "some description", title: "some title", visibility: "some visibility", access_code: "some access_code"}
+      valid_attrs = %{
+        description: "some description",
+        title: "some title",
+        visibility: "public",
+        access_code: "some access_code"
+      }
 
       assert {:ok, %Quiz{} = quiz} = Quizzes.create_quiz(valid_attrs)
       assert quiz.description == "some description"
       assert quiz.title == "some title"
-      assert quiz.visibility == "some visibility"
+      assert quiz.visibility == "public"
       assert quiz.access_code == "some access_code"
     end
 
@@ -36,12 +41,18 @@ defmodule Quizir.QuizzesTest do
 
     test "update_quiz/2 with valid data updates the quiz" do
       quiz = quiz_fixture()
-      update_attrs = %{description: "some updated description", title: "some updated title", visibility: "some updated visibility", access_code: "some updated access_code"}
+
+      update_attrs = %{
+        description: "some updated description",
+        title: "some updated title",
+        visibility: "private",
+        access_code: "some updated access_code"
+      }
 
       assert {:ok, %Quiz{} = quiz} = Quizzes.update_quiz(quiz, update_attrs)
       assert quiz.description == "some updated description"
       assert quiz.title == "some updated title"
-      assert quiz.visibility == "some updated visibility"
+      assert quiz.visibility == "private"
       assert quiz.access_code == "some updated access_code"
     end
 
@@ -55,6 +66,30 @@ defmodule Quizir.QuizzesTest do
       quiz = quiz_fixture()
       assert {:ok, %Quiz{}} = Quizzes.delete_quiz(quiz)
       assert_raise Ecto.NoResultsError, fn -> Quizzes.get_quiz!(quiz.id) end
+    end
+
+    test "delete_quiz/1 cascades deletion to associated questions and answer options" do
+      {:ok, quiz} =
+        Quizzes.create_quiz(%{
+          title: "Quiz avec questions",
+          visibility: "public",
+          questions: [
+            %{
+              body: "Q1",
+              order: 1,
+              time_limit_seconds: 20,
+              answer_options: [
+                %{body: "A1", is_correct: true},
+                %{body: "A2", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      assert {:ok, %Quiz{}} = Quizzes.delete_quiz(quiz)
+      assert_raise Ecto.NoResultsError, fn -> Quizzes.get_quiz!(quiz.id) end
+      assert Quizzes.list_questions() == []
+      assert Quizzes.list_answer_options() == []
     end
 
     test "change_quiz/1 returns a quiz changeset" do
@@ -154,14 +189,19 @@ defmodule Quizir.QuizzesTest do
       answer_option = answer_option_fixture()
       update_attrs = %{body: "some updated body", is_correct: false}
 
-      assert {:ok, %AnswerOption{} = answer_option} = Quizzes.update_answer_option(answer_option, update_attrs)
+      assert {:ok, %AnswerOption{} = answer_option} =
+               Quizzes.update_answer_option(answer_option, update_attrs)
+
       assert answer_option.body == "some updated body"
       assert answer_option.is_correct == false
     end
 
     test "update_answer_option/2 with invalid data returns error changeset" do
       answer_option = answer_option_fixture()
-      assert {:error, %Ecto.Changeset{}} = Quizzes.update_answer_option(answer_option, @invalid_attrs)
+
+      assert {:error, %Ecto.Changeset{}} =
+               Quizzes.update_answer_option(answer_option, @invalid_attrs)
+
       assert answer_option == Quizzes.get_answer_option!(answer_option.id)
     end
 

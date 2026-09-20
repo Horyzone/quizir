@@ -19,5 +19,7 @@ defmodule Quizir.Quizzes.Question do
     |> cast(attrs, [:body, :order, :time_limit_seconds, :quiz_id])
     |> validate_required([:body, :order, :time_limit_seconds])
     |> validate_number(:time_limit_seconds, greater_than: 4, less_than: 121)
+    # Permet de recevoir et valider les choix de réponse
+    |> cast_assoc(:answer_options, with: &Quizir.Quizzes.AnswerOption.changeset/2)
   end
 end

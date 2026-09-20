@@ -37,6 +37,16 @@ defmodule Quizir.Quizzes do
   """
   def get_quiz!(id), do: Repo.get!(Quiz, id)
 
+  def get_quiz_with_details!(id) do
+    import Ecto.Query
+
+    Quizir.Repo.one!(
+      from q in Quizir.Quizzes.Quiz,
+        where: q.id == ^id,
+        preload: [questions: :answer_options]
+    )
+  end
+
   @doc """
   Creates a quiz.
 
