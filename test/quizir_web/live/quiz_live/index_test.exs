@@ -25,6 +25,22 @@ defmodule QuizirWeb.QuizLive.IndexTest do
       refute has_element?(view, "#delete-quiz-#{quiz.id}-btn")
     end
 
+    test "does not render private quizzes in public list", %{conn: conn} do
+      owner = user_fixture()
+
+      pub_quiz =
+        quiz_fixture(%{title: "Quiz Public Explorateur", visibility: "public", user_id: owner.id})
+
+      priv_quiz =
+        quiz_fixture(%{title: "Quiz Privé Secret", visibility: "private", user_id: owner.id})
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes")
+
+      assert has_element?(view, "#quizzes-#{pub_quiz.id}")
+      refute has_element?(view, "#quizzes-#{priv_quiz.id}")
+      refute has_element?(view, "h1, a, span, p", "Quiz Privé Secret")
+    end
+
     test "navigates to /quizzes/new and redirects to login when clicking Nouveau Quiz unauthenticated",
          %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes")

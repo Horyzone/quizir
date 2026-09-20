@@ -15,6 +15,13 @@ defmodule Quizir.QuizzesTest do
       assert Quizzes.list_quizzes() == [quiz]
     end
 
+    test "list_public_quizzes/0 returns only public quizzes" do
+      public_quiz = quiz_fixture(%{visibility: "public"})
+      _private_quiz = quiz_fixture(%{visibility: "private"})
+
+      assert Quizzes.list_public_quizzes() == [public_quiz]
+    end
+
     test "get_quiz!/1 returns the quiz with given id" do
       quiz = quiz_fixture()
       assert Quizzes.get_quiz!(quiz.id) == quiz

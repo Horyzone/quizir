@@ -23,6 +23,24 @@ defmodule Quizir.Quizzes do
   end
 
   @doc """
+  Returns the list of public quizzes.
+
+  ## Examples
+
+      iex> list_public_quizzes()
+      [%Quiz{}, ...]
+
+  """
+  def list_public_quizzes do
+    from(q in Quiz,
+      where: q.visibility == "public",
+      order_by: [desc: q.inserted_at, desc: q.id],
+      preload: [:user]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Returns the list of quizzes created by a specific user with an optional visibility filter.
   Allowed filter values: "all", "public", "private" (or atoms :all, :public, :private).
   """

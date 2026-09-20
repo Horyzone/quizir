@@ -4,7 +4,7 @@ defmodule QuizirWeb.QuizLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    quizzes = Quizzes.list_quizzes()
+    quizzes = Quizzes.list_public_quizzes()
     {:ok, stream(socket, :quizzes, quizzes)}
   end
 
