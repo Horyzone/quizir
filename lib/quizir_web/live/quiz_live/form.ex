@@ -16,13 +16,20 @@ defmodule QuizirWeb.QuizLive.Form do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     quiz = Quizzes.get_quiz_with_details!(id)
-    changeset = Quizzes.change_quiz(quiz)
 
-    socket
-    |> assign(:page_title, "Modifier le Quiz")
-    |> assign(:quiz, quiz)
-    |> assign(:quiz_params, quiz_to_params(quiz))
-    |> assign(:form, to_form(changeset))
+    if Quizzes.can_manage_quiz?(quiz, socket.assigns.current_user) do
+      changeset = Quizzes.change_quiz(quiz)
+
+      socket
+      |> assign(:page_title, "Modifier le Quiz")
+      |> assign(:quiz, quiz)
+      |> assign(:quiz_params, quiz_to_params(quiz))
+      |> assign(:form, to_form(changeset))
+    else
+      socket
+      |> put_flash(:error, "Vous n'êtes pas autorisé à modifier ce quiz.")
+      |> push_navigate(to: ~p"/quizzes")
+    end
   end
 
   defp apply_action(socket, :new, _params) do
@@ -203,23 +210,30 @@ defmodule QuizirWeb.QuizLive.Form do
   end
 
   defp save_quiz(socket, :edit, quiz_params) do
-    case Quizzes.update_quiz(socket.assigns.quiz, quiz_params) do
-      {:ok, quiz} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Quiz « #{quiz.title} » mis à jour avec succès !")
-         |> push_navigate(to: ~p"/quizzes/#{quiz}")}
+    if Quizzes.can_manage_quiz?(socket.assigns.quiz, socket.assigns.current_user) do
+      case Quizzes.update_quiz(socket.assigns.quiz, quiz_params) do
+        {:ok, quiz} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Quiz « #{quiz.title} » mis à jour avec succès !")
+           |> push_navigate(to: ~p"/quizzes/#{quiz}")}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply,
-         socket
-         |> assign(:quiz_params, quiz_params)
-         |> assign(:form, to_form(changeset))}
+        {:error, %Ecto.Changeset{} = changeset} ->
+          {:noreply,
+           socket
+           |> assign(:quiz_params, quiz_params)
+           |> assign(:form, to_form(changeset))}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "Vous n'êtes pas autorisé à modifier ce quiz.")
+       |> push_navigate(to: ~p"/quizzes")}
     end
   end
 
   defp save_quiz(socket, :new, quiz_params) do
-    case Quizzes.create_quiz(quiz_params) do
+    case Quizzes.create_quiz(quiz_params, socket.assigns.current_user) do
       {:ok, quiz} ->
         {:noreply,
          socket
@@ -258,7 +272,7 @@ defmodule QuizirWeb.QuizLive.Form do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="py-4">
         <div class="flex items-center justify-between mb-6">
           <div>
@@ -356,16 +370,18 @@ defmodule QuizirWeb.QuizLive.Form do
                       value={q_form[:id].value}
                     />
 
-                    <button
-                      type="button"
-                      id={"remove-question-#{q_form.index}-btn"}
-                      phx-click="remove-question"
-                      phx-value-index={q_form.index}
-                      class="btn btn-ghost btn-xs text-error hover:bg-error/10"
-                      aria-label="Supprimer la question"
-                    >
-                      <.icon name="hero-trash" class="size-4" /> Supprimer
-                    </button>
+                    <%= if length(normalize_questions(@quiz_params["questions"])) > 1 do %>
+                      <button
+                        type="button"
+                        id={"remove-question-#{q_form.index}-btn"}
+                        phx-click="remove-question"
+                        phx-value-index={q_form.index}
+                        class="btn btn-ghost btn-xs text-error hover:bg-error/10"
+                        aria-label="Supprimer la question"
+                      >
+                        <.icon name="hero-trash" class="size-4" /> Supprimer
+                      </button>
+                    <% end %>
                   </div>
 
                   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -431,17 +447,23 @@ defmodule QuizirWeb.QuizLive.Form do
                               label="Bonne réponse"
                             />
                           </div>
-                          <button
-                            type="button"
-                            id={"remove-option-#{q_form.index}-#{opt_form.index}-btn"}
-                            phx-click="remove-answer-option"
-                            phx-value-question-index={q_form.index}
-                            phx-value-option-index={opt_form.index}
-                            class="btn btn-ghost btn-square btn-xs text-error hover:bg-error/10"
-                            aria-label="Supprimer le choix"
-                          >
-                            <.icon name="hero-x-mark" class="size-4" />
-                          </button>
+                          <% current_q =
+                            Enum.at(normalize_questions(@quiz_params["questions"]), q_form.index) ||
+                              %{} %>
+                          <% current_opts = normalize_options(current_q["answer_options"] || []) %>
+                          <%= if length(current_opts) > 2 do %>
+                            <button
+                              type="button"
+                              id={"remove-option-#{q_form.index}-#{opt_form.index}-btn"}
+                              phx-click="remove-answer-option"
+                              phx-value-question-index={q_form.index}
+                              phx-value-option-index={opt_form.index}
+                              class="btn btn-ghost btn-square btn-xs text-error hover:bg-error/10"
+                              aria-label="Supprimer le choix"
+                            >
+                              <.icon name="hero-x-mark" class="size-4" />
+                            </button>
+                          <% end %>
                         </div>
                       </.inputs_for>
                     </div>

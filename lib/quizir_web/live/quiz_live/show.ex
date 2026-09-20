@@ -6,24 +6,52 @@ defmodule QuizirWeb.QuizLive.Show do
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     quiz = Quizzes.get_quiz_with_details!(id)
+    current_user = socket.assigns[:current_user]
+    is_owner = current_user != nil and Quizzes.can_manage_quiz?(quiz, current_user)
 
     {:ok,
      socket
      |> assign(:page_title, quiz.title)
-     |> assign(:quiz, quiz)}
+     |> assign(:quiz, quiz)
+     |> assign(:is_owner, is_owner)}
   end
 
   @impl true
   def handle_event("delete", _params, socket) do
-    case Quizzes.delete_quiz(socket.assigns.quiz) do
-      {:ok, _} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Quiz « #{socket.assigns.quiz.title} » supprimé avec succès.")
-         |> push_navigate(to: ~p"/quizzes")}
+    if Quizzes.can_manage_quiz?(socket.assigns.quiz, socket.assigns.current_user) do
+      case Quizzes.delete_quiz(socket.assigns.quiz) do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Quiz « #{socket.assigns.quiz.title} » supprimé avec succès.")
+           |> push_navigate(to: ~p"/quizzes")}
 
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Erreur lors de la suppression du quiz.")}
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Erreur lors de la suppression du quiz.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Vous n'êtes pas autorisé à supprimer ce quiz.")}
+    end
+  end
+
+  @impl true
+  def handle_event("duplicate", _params, socket) do
+    if socket.assigns.current_user do
+      case Quizzes.duplicate_quiz(socket.assigns.quiz, socket.assigns.current_user) do
+        {:ok, duplicated_quiz} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Quiz dupliqué avec succès ! Vous pouvez maintenant le modifier.")
+           |> push_navigate(to: ~p"/quizzes/#{duplicated_quiz}/edit")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Impossible de dupliquer ce quiz.")}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "Vous devez être connecté pour dupliquer un quiz.")
+       |> push_navigate(to: ~p"/users/log_in")}
     end
   end
 
@@ -49,7 +77,7 @@ defmodule QuizirWeb.QuizLive.Show do
     assigns = assign(assigns, :total_time, total_time)
 
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="py-4">
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
           <.button id="back-to-quizzes-btn" navigate={~p"/quizzes"} class="btn btn-ghost btn-sm">
@@ -57,22 +85,32 @@ defmodule QuizirWeb.QuizLive.Show do
           </.button>
 
           <div class="flex items-center gap-2">
-            <.button
-              id="edit-quiz-btn"
-              navigate={~p"/quizzes/#{@quiz}/edit"}
-              class="btn btn-outline btn-sm gap-1"
-            >
-              <.icon name="hero-pencil-square" class="size-4" /> Modifier
-            </.button>
+            <%= if @is_owner do %>
+              <.button
+                id="edit-quiz-btn"
+                navigate={~p"/quizzes/#{@quiz}/edit"}
+                class="btn btn-outline btn-sm gap-1"
+              >
+                <.icon name="hero-pencil-square" class="size-4" /> Modifier
+              </.button>
 
-            <.button
-              id="delete-quiz-btn"
-              phx-click="delete"
-              data-confirm="Êtes-vous sûr de vouloir supprimer définitivement ce quiz ?"
-              class="btn btn-ghost btn-sm text-error hover:bg-error/10 gap-1"
-            >
-              <.icon name="hero-trash" class="size-4" /> Supprimer
-            </.button>
+              <.button
+                id="delete-quiz-btn"
+                phx-click="delete"
+                data-confirm="Êtes-vous sûr de vouloir supprimer définitivement ce quiz ?"
+                class="btn btn-ghost btn-sm text-error hover:bg-error/10 gap-1"
+              >
+                <.icon name="hero-trash" class="size-4" /> Supprimer
+              </.button>
+            <% else %>
+              <.button
+                id="duplicate-quiz-btn"
+                phx-click="duplicate"
+                class="btn btn-outline btn-sm gap-1"
+              >
+                <.icon name="hero-document-duplicate" class="size-4" /> Dupliquer
+              </.button>
+            <% end %>
 
             <.button
               id="start-game-btn"
@@ -106,6 +144,12 @@ defmodule QuizirWeb.QuizLive.Show do
               <p id="quiz-details-desc" class="text-zinc-600 text-base">
                 {@quiz.description || "Aucune description fournie."}
               </p>
+              <%= if @quiz.user do %>
+                <p id="quiz-author-badge" class="text-xs text-zinc-400 mt-2 flex items-center gap-1">
+                  <.icon name="hero-user" class="size-3.5" /> Créé par
+                  <span class="font-semibold text-zinc-600">{@quiz.user.username}</span>
+                </p>
+              <% end %>
             </div>
 
             <div class="flex items-center gap-4 text-sm text-zinc-500">

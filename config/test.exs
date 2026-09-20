@@ -23,6 +23,9 @@ config :quizir, QuizirWeb.Endpoint,
 # In test we don't send emails
 config :quizir, Quizir.Mailer, adapter: Swoosh.Adapters.Test
 
+# Fast password hashing in tests
+config :pbkdf2_elixir, :rounds, 1
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

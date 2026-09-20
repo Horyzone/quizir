@@ -8,17 +8,23 @@ defmodule Quizir.QuizzesFixtures do
   Generate a quiz.
   """
   def quiz_fixture(attrs \\ %{}) do
-    {:ok, quiz} =
+    attrs = Map.new(attrs)
+    user = Map.get(attrs, :user)
+    user_id = Map.get(attrs, :user_id)
+    user_struct = user || if user_id, do: %Quizir.Accounts.User{id: user_id}, else: nil
+
+    clean_attrs =
       attrs
+      |> Map.drop([:user, :user_id])
       |> Enum.into(%{
         access_code: "some access_code",
         description: "some description",
         title: "some title",
         visibility: "public"
       })
-      |> Quizir.Quizzes.create_quiz()
 
-    quiz
+    {:ok, quiz} = Quizir.Quizzes.create_quiz(clean_attrs, user_struct)
+    Quizir.Repo.preload(quiz, :user)
   end
 
   @doc """

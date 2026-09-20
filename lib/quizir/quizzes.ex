@@ -18,7 +18,7 @@ defmodule Quizir.Quizzes do
 
   """
   def list_quizzes do
-    from(q in Quiz, order_by: [desc: q.inserted_at, desc: q.id])
+    from(q in Quiz, order_by: [desc: q.inserted_at, desc: q.id], preload: [:user])
     |> Repo.all()
   end
 
@@ -36,7 +36,10 @@ defmodule Quizir.Quizzes do
       ** (Ecto.NoResultsError)
 
   """
-  def get_quiz!(id), do: Repo.get!(Quiz, id)
+  def get_quiz!(id) do
+    from(q in Quiz, where: q.id == ^id, preload: [:user])
+    |> Repo.one!()
+  end
 
   def get_quiz_with_details!(id) do
     questions_query = from q in Quizir.Quizzes.Question, order_by: [asc: q.order, asc: q.id]
@@ -45,24 +48,66 @@ defmodule Quizir.Quizzes do
     Repo.one!(
       from q in Quiz,
         where: q.id == ^id,
-        preload: [questions: ^{questions_query, answer_options: options_query}]
+        preload: [:user, questions: ^{questions_query, answer_options: options_query}]
     )
   end
 
   @doc """
-  Creates a quiz.
-
-  ## Examples
-
-      iex> create_quiz(%{field: value})
-      {:ok, %Quiz{}}
-
-      iex> create_quiz(%{field: bad_value})
-      {:error, %Ecto.Changeset{}}
-
+  Checks if a user can manage (modify or delete) a quiz.
   """
-  def create_quiz(attrs) do
-    %Quiz{}
+  def can_manage_quiz?(%Quiz{user_id: user_id}, %Quizir.Accounts.User{id: current_user_id}) do
+    user_id != nil and user_id == current_user_id
+  end
+
+  def can_manage_quiz?(_quiz, _user), do: false
+
+  @doc """
+  Duplicates a quiz with all its questions and answer options for a new owner.
+  """
+  def duplicate_quiz(%Quiz{} = source_quiz, %Quizir.Accounts.User{} = user) do
+    quiz = get_quiz_with_details!(source_quiz.id)
+
+    duplicated_questions =
+      Enum.map(quiz.questions || [], fn q ->
+        options =
+          Enum.map(q.answer_options || [], fn opt ->
+            %{
+              "body" => opt.body,
+              "is_correct" => opt.is_correct
+            }
+          end)
+
+        %{
+          "body" => q.body,
+          "order" => q.order,
+          "time_limit_seconds" => q.time_limit_seconds,
+          "answer_options" => options
+        }
+      end)
+
+    attrs = %{
+      "title" => "#{quiz.title} (copie)",
+      "description" => quiz.description,
+      "visibility" => quiz.visibility,
+      "access_code" => quiz.access_code,
+      "questions" => duplicated_questions
+    }
+
+    create_quiz(attrs, user)
+  end
+
+  def duplicate_quiz(quiz_id, %Quizir.Accounts.User{} = user) do
+    quiz = get_quiz_with_details!(quiz_id)
+    duplicate_quiz(quiz, user)
+  end
+
+  @doc """
+  Creates a quiz optionally associated with an owner user.
+  """
+  def create_quiz(attrs, user \\ nil) do
+    quiz = if user, do: %Quiz{user_id: user.id}, else: %Quiz{}
+
+    quiz
     |> Quiz.changeset(attrs)
     |> Repo.insert()
   end

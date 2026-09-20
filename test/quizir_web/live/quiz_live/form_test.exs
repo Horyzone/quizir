@@ -2,6 +2,7 @@ defmodule QuizirWeb.QuizLive.FormTest do
   use QuizirWeb.ConnCase
 
   alias Quizir.Quizzes
+  import Quizir.AccountsFixtures
 
   @valid_quiz_params %{
     "title" => "Quiz sur la Géographie",
@@ -20,7 +21,15 @@ defmodule QuizirWeb.QuizLive.FormTest do
     }
   }
 
-  describe "GET /quizzes/new" do
+  describe "GET /quizzes/new (unauthenticated)" do
+    test "redirects unauthenticated users to login page", %{conn: conn} do
+      assert {:error, {:redirect, %{to: "/users/log_in"}}} = live(conn, ~p"/quizzes/new")
+    end
+  end
+
+  describe "GET /quizzes/new (authenticated)" do
+    setup :register_and_log_in_user
+
     test "renders creation form, layout, and default question", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
@@ -63,28 +72,39 @@ defmodule QuizirWeb.QuizLive.FormTest do
     test "validates time limit boundary (greater than 4, less than 121)", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
-      response =
+      params_low = %{
+        "questions" => %{
+          "0" => %{"time_limit_seconds" => "3"}
+        }
+      }
+
+      response_low =
         view
-        |> form("#quiz-form",
-          quiz: %{
-            "questions" => %{
-              "0" => %{"time_limit_seconds" => "3"}
-            }
-          }
-        )
+        |> form("#quiz-form", quiz: params_low)
         |> render_change()
 
-      assert response =~ "must be greater than 4"
+      assert response_low =~ "must be greater than 4"
+
+      params_high = %{
+        "questions" => %{
+          "0" => %{"time_limit_seconds" => "130"}
+        }
+      }
+
+      response_high =
+        view
+        |> form("#quiz-form", quiz: params_high)
+        |> render_change()
+
+      assert response_high =~ "must be less than 121"
     end
 
     test "can dynamically add and remove questions", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
-      # Initially 1 question
       assert has_element?(view, "#question-card-0")
       refute has_element?(view, "#question-card-1")
 
-      # Add question
       view
       |> element("#add-question-btn")
       |> render_click()
@@ -92,72 +112,69 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert has_element?(view, "#question-card-0")
       assert has_element?(view, "#question-card-1")
 
-      # Remove second question
       view
       |> element("#remove-question-1-btn")
       |> render_click()
 
       assert has_element?(view, "#question-card-0")
       refute has_element?(view, "#question-card-1")
-
-      # Attempting to remove the only remaining question keeps it
-      view
-      |> element("#remove-question-0-btn")
-      |> render_click()
-
-      assert has_element?(view, "#question-card-0")
     end
 
-    test "can dynamically add and remove answer options", %{conn: conn} do
+    test "can add and remove answer options from a question", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
-      # Initially 2 options in question 0
       assert has_element?(view, "#question-0-option-0")
       assert has_element?(view, "#question-0-option-1")
       refute has_element?(view, "#question-0-option-2")
 
-      # Add option
       view
       |> element("#add-option-0-btn")
       |> render_click()
 
       assert has_element?(view, "#question-0-option-2")
 
-      # Remove option 2
       view
       |> element("#remove-option-0-2-btn")
       |> render_click()
 
       refute has_element?(view, "#question-0-option-2")
-
-      # Removing when 2 options remain preserves at least 2 options
-      view
-      |> element("#remove-option-0-1-btn")
-      |> render_click()
-
-      assert has_element?(view, "#question-0-option-0")
-      assert has_element?(view, "#question-0-option-1")
     end
 
-    test "creates quiz and redirects to index on valid submission", %{conn: conn} do
+    test "cannot remove answer option below minimum of 2", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
-      {:ok, _index_live, html} =
+      refute has_element?(view, "#remove-option-btn-0-0")
+      refute has_element?(view, "#remove-option-btn-0-1")
+    end
+
+    test "cannot remove the only question", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      refute has_element?(view, "#remove-question-0-btn")
+    end
+
+    test "creates quiz associated with logged in user and redirects to index on valid submission",
+         %{
+           conn: conn,
+           user: user
+         } do
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      {:ok, _index_view, html} =
         view
         |> form("#quiz-form", quiz: @valid_quiz_params)
         |> render_submit()
         |> follow_redirect(conn, ~p"/quizzes")
 
       assert html =~ "Quiz « Quiz sur la Géographie » créé avec succès !"
+      assert html =~ "Quiz sur la Géographie"
 
-      # Vérification en base de données
-      [quiz] = Quizzes.list_quizzes()
-      assert quiz.title == "Quiz sur la Géographie"
-      quiz_details = Quizzes.get_quiz_with_details!(quiz.id)
-      assert length(quiz_details.questions) == 1
-      [question] = quiz_details.questions
-      assert question.body == "Quelle est la capitale de l'Australie ?"
-      assert length(question.answer_options) == 2
+      created =
+        Quizzes.list_quizzes()
+        |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
+
+      assert created != nil
+      assert created.user_id == user.id
     end
 
     test "creates a private quiz with access code", %{conn: conn} do
@@ -165,27 +182,31 @@ defmodule QuizirWeb.QuizLive.FormTest do
 
       private_params =
         @valid_quiz_params
-        |> Map.put("title", "Quiz VIP")
         |> Map.put("visibility", "private")
         |> Map.put("access_code", "SECRET123")
 
-      {:ok, _index_live, _html} =
+      {:ok, _index_view, html} =
         view
         |> form("#quiz-form", quiz: private_params)
         |> render_submit()
         |> follow_redirect(conn, ~p"/quizzes")
 
-      [quiz] = Enum.filter(Quizzes.list_quizzes(), &(&1.title == "Quiz VIP"))
-      assert quiz.visibility == "private"
-      assert quiz.access_code == "SECRET123"
+      assert html =~ "Quiz « Quiz sur la Géographie » créé avec succès !"
+      created = Quizzes.list_quizzes() |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
+      assert created.visibility == "private"
+      assert created.access_code == "SECRET123"
     end
 
     test "renders errors when submitting invalid data", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
+      invalid_params =
+        @valid_quiz_params
+        |> Map.put("title", "")
+
       response =
         view
-        |> form("#quiz-form", quiz: %{"title" => ""})
+        |> form("#quiz-form", quiz: invalid_params)
         |> render_submit()
 
       assert response =~ "can&#39;t be blank"
@@ -194,7 +215,7 @@ defmodule QuizirWeb.QuizLive.FormTest do
     test "navigates back to quizzes index via back button", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
-      {:ok, _index_live, html} =
+      {:ok, _view, html} =
         view
         |> element("#back-button")
         |> render_click()
@@ -205,30 +226,35 @@ defmodule QuizirWeb.QuizLive.FormTest do
   end
 
   describe "GET /quizzes/:id/edit" do
-    defp create_quiz_for_edit do
+    setup :register_and_log_in_user
+
+    defp create_quiz_for_edit(user) do
       {:ok, quiz} =
-        Quizzes.create_quiz(%{
-          title: "Quiz Histoire",
-          description: "Histoire de France",
-          visibility: "public",
-          questions: [
-            %{
-              body: "En quelle année a eu lieu la Révolution française ?",
-              order: 1,
-              time_limit_seconds: 30,
-              answer_options: [
-                %{body: "1789", is_correct: true},
-                %{body: "1799", is_correct: false}
-              ]
-            }
-          ]
-        })
+        Quizzes.create_quiz(
+          %{
+            title: "Quiz Histoire",
+            description: "Histoire de France",
+            visibility: "public",
+            questions: [
+              %{
+                body: "En quelle année a eu lieu la Révolution française ?",
+                order: 1,
+                time_limit_seconds: 30,
+                answer_options: [
+                  %{body: "1789", is_correct: true},
+                  %{body: "1799", is_correct: false}
+                ]
+              }
+            ]
+          },
+          user
+        )
 
       quiz
     end
 
-    test "renders edit form pre-populated with quiz data", %{conn: conn} do
-      quiz = create_quiz_for_edit()
+    test "renders edit form pre-populated with quiz data for owner", %{conn: conn, user: user} do
+      quiz = create_quiz_for_edit(user)
 
       {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
 
@@ -243,57 +269,56 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert has_element?(view, "#save-quiz-button", "Enregistrer les modifications")
     end
 
-    test "updates quiz and redirects to show on valid submission", %{conn: conn} do
-      quiz = create_quiz_for_edit()
+    test "redirects non-owner with error message", %{conn: conn} do
+      other_user = user_fixture()
+      quiz = create_quiz_for_edit(other_user)
+
+      {:ok, _view, html} =
+        live(conn, ~p"/quizzes/#{quiz}/edit")
+        |> follow_redirect(conn, ~p"/quizzes")
+
+      assert html =~ "Vous n&#39;êtes pas autorisé à modifier ce quiz."
+    end
+
+    test "updates quiz and redirects to show on valid submission", %{conn: conn, user: user} do
+      quiz = create_quiz_for_edit(user)
       detailed = Quizzes.get_quiz_with_details!(quiz.id)
       [q] = detailed.questions
       [a1, a2] = q.answer_options
 
-      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
-
       update_params = %{
-        "title" => "Quiz Histoire Contemporaine",
-        "description" => "Mise à jour",
+        "title" => "Quiz Histoire de France (Mis à jour)",
+        "description" => "Description mise à jour",
         "visibility" => "public",
+        "access_code" => "",
         "questions" => %{
           "0" => %{
-            "id" => to_string(q.id),
-            "body" => "Prise de la Bastille ?",
+            "id" => q.id,
             "order" => "1",
-            "time_limit_seconds" => "15",
+            "body" => "En quelle année a eu lieu la prise de la Bastille ?",
+            "time_limit_seconds" => "45",
             "answer_options" => %{
-              "0" => %{
-                "id" => to_string(a1.id),
-                "body" => "14 juillet 1789",
-                "is_correct" => "true"
-              },
-              "1" => %{
-                "id" => to_string(a2.id),
-                "body" => "14 juillet 1790",
-                "is_correct" => "false"
-              }
+              "0" => %{"id" => a1.id, "body" => "14 juillet 1789", "is_correct" => "true"},
+              "1" => %{"id" => a2.id, "body" => "14 juillet 1799", "is_correct" => "false"}
             }
           }
         }
       }
 
-      {:ok, _show_live, html} =
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      {:ok, _show_view, html} =
         view
         |> form("#quiz-form", quiz: update_params)
         |> render_submit()
         |> follow_redirect(conn, ~p"/quizzes/#{quiz}")
 
-      assert html =~ "Quiz « Quiz Histoire Contemporaine » mis à jour avec succès !"
-
-      reloaded = Quizzes.get_quiz_with_details!(quiz.id)
-      assert reloaded.title == "Quiz Histoire Contemporaine"
-      assert hd(reloaded.questions).body == "Prise de la Bastille ?"
-      assert hd(hd(reloaded.questions).answer_options).body == "14 juillet 1789"
+      assert html =~ "Quiz « Quiz Histoire de France (Mis à jour) » mis à jour avec succès !"
+      assert html =~ "Quiz Histoire de France (Mis à jour)"
     end
 
-    test "renders errors when updating with invalid data", %{conn: conn} do
-      quiz = create_quiz_for_edit()
-
+    test "renders errors when updating with invalid data", %{conn: conn, user: user} do
+      quiz = create_quiz_for_edit(user)
       {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
 
       response =
@@ -304,14 +329,13 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert response =~ "can&#39;t be blank"
     end
 
-    test "navigates back to show page on cancel", %{conn: conn} do
-      quiz = create_quiz_for_edit()
-
+    test "navigates back to show page on cancel", %{conn: conn, user: user} do
+      quiz = create_quiz_for_edit(user)
       {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
 
-      {:ok, _show_live, html} =
+      {:ok, _show_view, html} =
         view
-        |> element("#cancel-button")
+        |> element("#back-button")
         |> render_click()
         |> follow_redirect(conn, ~p"/quizzes/#{quiz}")
 

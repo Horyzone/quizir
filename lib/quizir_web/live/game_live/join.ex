@@ -5,10 +5,17 @@ defmodule QuizirWeb.GameLive.Join do
 
   @impl true
   def mount(params, _session, socket) do
+    default_nickname =
+      cond do
+        params["nickname"] && params["nickname"] != "" -> params["nickname"]
+        socket.assigns[:current_user] -> socket.assigns.current_user.username
+        true -> ""
+      end
+
     form =
       to_form(%{
         "pin" => params["pin"] || "",
-        "nickname" => "",
+        "nickname" => default_nickname,
         "access_code" => ""
       })
 
@@ -91,7 +98,7 @@ defmodule QuizirWeb.GameLive.Join do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="max-w-md mx-auto py-8">
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center p-3 mb-4 rounded-2xl bg-primary/10 text-primary">

@@ -11,18 +11,47 @@ defmodule QuizirWeb.QuizLive.Index do
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
     quiz = Quizzes.get_quiz!(id)
-    {:ok, _} = Quizzes.delete_quiz(quiz)
 
-    {:noreply,
-     socket
-     |> put_flash(:info, "Quiz « #{quiz.title} » supprimé avec succès.")
-     |> stream_delete(:quizzes, quiz)}
+    if Quizzes.can_manage_quiz?(quiz, socket.assigns.current_user) do
+      {:ok, _} = Quizzes.delete_quiz(quiz)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Quiz « #{quiz.title} » supprimé avec succès.")
+       |> stream_delete(:quizzes, quiz)}
+    else
+      {:noreply, put_flash(socket, :error, "Vous n'êtes pas autorisé à supprimer ce quiz.")}
+    end
+  end
+
+  @impl true
+  def handle_event("duplicate", %{"id" => id}, socket) do
+    if socket.assigns.current_user do
+      case Quizzes.duplicate_quiz(id, socket.assigns.current_user) do
+        {:ok, duplicated_quiz} ->
+          {:noreply,
+           socket
+           |> put_flash(
+             :info,
+             "Quiz dupliqué avec succès ! Vous pouvez maintenant le personnaliser."
+           )
+           |> push_navigate(to: ~p"/quizzes/#{duplicated_quiz}/edit")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Impossible de dupliquer ce quiz.")}
+      end
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, "Vous devez être connecté pour dupliquer un quiz.")
+       |> push_navigate(to: ~p"/users/log_in")}
+    end
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="max-w-4xl mx-auto py-8">
         <div class="flex justify-between items-center mb-6">
           <div>
@@ -50,13 +79,20 @@ defmodule QuizirWeb.QuizLive.Index do
           >
             <div>
               <div class="flex justify-between items-start gap-2">
-                <.link
-                  navigate={~p"/quizzes/#{quiz}"}
-                  id={"quiz-title-link-#{quiz.id}"}
-                  class="text-xl font-semibold hover:text-primary transition"
-                >
-                  {quiz.title}
-                </.link>
+                <div>
+                  <.link
+                    navigate={~p"/quizzes/#{quiz}"}
+                    id={"quiz-title-link-#{quiz.id}"}
+                    class="text-xl font-semibold hover:text-primary transition"
+                  >
+                    {quiz.title}
+                  </.link>
+                  <%= if quiz.user do %>
+                    <p class="text-xs text-zinc-400 mt-0.5 flex items-center gap-1">
+                      <.icon name="hero-user" class="size-3" /> {quiz.user.username}
+                    </p>
+                  <% end %>
+                </div>
                 <span class={[
                   "text-xs px-2 py-0.5 rounded-full font-semibold shrink-0",
                   if(quiz.visibility == "public",
@@ -82,24 +118,37 @@ defmodule QuizirWeb.QuizLive.Index do
               </.link>
 
               <div class="flex items-center gap-1">
-                <.link
-                  navigate={~p"/quizzes/#{quiz}/edit"}
-                  id={"edit-quiz-#{quiz.id}-btn"}
-                  class="btn btn-xs btn-ghost gap-1"
-                >
-                  <.icon name="hero-pencil" class="size-3.5" /> Modifier
-                </.link>
-                <button
-                  type="button"
-                  id={"delete-quiz-#{quiz.id}-btn"}
-                  phx-click="delete"
-                  phx-value-id={quiz.id}
-                  data-confirm="Êtes-vous sûr de vouloir supprimer ce quiz ?"
-                  class="btn btn-xs btn-ghost text-error hover:bg-error/10 gap-1"
-                  aria-label="Supprimer le quiz"
-                >
-                  <.icon name="hero-trash" class="size-3.5" />
-                </button>
+                <%= if Quizzes.can_manage_quiz?(quiz, @current_user) do %>
+                  <.link
+                    navigate={~p"/quizzes/#{quiz}/edit"}
+                    id={"edit-quiz-#{quiz.id}-btn"}
+                    class="btn btn-xs btn-ghost gap-1"
+                  >
+                    <.icon name="hero-pencil" class="size-3.5" /> Modifier
+                  </.link>
+                  <button
+                    type="button"
+                    id={"delete-quiz-#{quiz.id}-btn"}
+                    phx-click="delete"
+                    phx-value-id={quiz.id}
+                    data-confirm="Êtes-vous sûr de vouloir supprimer ce quiz ?"
+                    class="btn btn-xs btn-ghost text-error hover:bg-error/10 gap-1"
+                    aria-label="Supprimer le quiz"
+                  >
+                    <.icon name="hero-trash" class="size-3.5" />
+                  </button>
+                <% else %>
+                  <button
+                    type="button"
+                    id={"duplicate-quiz-#{quiz.id}-btn"}
+                    phx-click="duplicate"
+                    phx-value-id={quiz.id}
+                    class="btn btn-xs btn-ghost gap-1 text-zinc-600 hover:text-primary"
+                    aria-label="Dupliquer le quiz"
+                  >
+                    <.icon name="hero-document-duplicate" class="size-3.5" /> Dupliquer
+                  </button>
+                <% end %>
               </div>
             </div>
           </div>

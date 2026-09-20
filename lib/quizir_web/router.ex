@@ -1,6 +1,8 @@
 defmodule QuizirWeb.Router do
   use QuizirWeb, :router
 
+  import QuizirWeb.UserAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,40 +10,59 @@ defmodule QuizirWeb.Router do
     plug :put_root_layout, html: {QuizirWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_user
   end
 
   pipeline :api do
     plug :accepts, ["json"]
   end
 
+  # Authentication routes for unauthenticated users
+  scope "/", QuizirWeb do
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
+
+    live_session :redirect_if_user_is_authenticated,
+      on_mount: [{QuizirWeb.UserAuth, :redirect_if_user_is_authenticated}] do
+      live "/users/register", UserRegistrationLive, :new
+      live "/users/log_in", UserLoginLive, :new
+      live "/users/reset_password", UserForgotPasswordLive, :new
+      live "/users/reset_password/:token", UserResetPasswordLive, :edit
+    end
+
+    post "/users/log_in", UserSessionController, :create
+  end
+
+  # Routes requiring authentication
+  scope "/", QuizirWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_authenticated_user,
+      on_mount: [{QuizirWeb.UserAuth, :ensure_authenticated}] do
+      live "/quizzes/new", QuizLive.Form, :new
+      live "/quizzes/:id/edit", QuizLive.Form, :edit
+    end
+  end
+
+  # General routes (with current user mounted if present)
   scope "/", QuizirWeb do
     pipe_through :browser
 
     get "/", PageController, :home
+    delete "/users/log_out", UserSessionController, :delete
 
-    # Routes Quizir
-    live "/quizzes", QuizLive.Index, :index
-    live "/quizzes/new", QuizLive.Form, :new
-    live "/quizzes/:id", QuizLive.Show, :show
-    live "/quizzes/:id/edit", QuizLive.Form, :edit
+    live_session :current_user,
+      on_mount: [{QuizirWeb.UserAuth, :mount_current_user}] do
+      live "/quizzes", QuizLive.Index, :index
+      live "/quizzes/:id", QuizLive.Show, :show
 
-    # Routes Jeux Multijoueur
-    live "/join", GameLive.Join, :join
-    live "/games/:code", GameLive.Play, :play
+      # Routes Jeux Multijoueur
+      live "/join", GameLive.Join, :join
+      live "/games/:code", GameLive.Play, :play
+    end
   end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", QuizirWeb do
-  #   pipe_through :api
-  # end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:quizir, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do

@@ -27,6 +27,13 @@ defmodule QuizirWeb.GameLive.Play do
             nil
           end
 
+        host_join_nickname =
+          cond do
+            params["name"] && params["name"] != "" -> params["name"]
+            socket.assigns[:current_user] -> socket.assigns.current_user.username
+            true -> "Hôte"
+          end
+
         {:ok,
          socket
          |> assign(:code, code)
@@ -34,6 +41,7 @@ defmodule QuizirWeb.GameLive.Play do
          |> assign(:is_host, is_host)
          |> assign(:host_token, host_token)
          |> assign(:current_player, current_player)
+         |> assign(:host_join_nickname, host_join_nickname)
          |> assign(:status, game_state.status)
          |> assign(:questions, game_state.questions)
          |> assign(:current_question_index, game_state.current_question_index)
@@ -184,6 +192,31 @@ defmodule QuizirWeb.GameLive.Play do
   end
 
   @impl true
+  def handle_event("host_join", %{"nickname" => nickname}, socket) do
+    clean_name = String.trim(nickname || "")
+
+    if clean_name != "" do
+      case Games.join_game(socket.assigns.code, clean_name,
+             access_code: socket.assigns.quiz.access_code
+           ) do
+        {:ok, player} ->
+          {:noreply,
+           socket
+           |> assign(:current_player, player)
+           |> put_flash(:info, "Vous participez désormais au quiz en tant que joueur !")}
+
+        {:error, :game_already_started} ->
+          {:noreply, put_flash(socket, :error, "La partie a déjà commencé.")}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Impossible de rejoindre la partie.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Veuillez entrer un pseudo valide.")}
+    end
+  end
+
+  @impl true
   def handle_event("start_game", _params, socket) do
     if socket.assigns.is_host do
       case Games.start_game(socket.assigns.code, socket.assigns.host_token) do
@@ -243,7 +276,7 @@ defmodule QuizirWeb.GameLive.Play do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="max-w-3xl mx-auto py-6">
         <!-- Top status bar -->
         <div class="flex items-center justify-between p-4 mb-6 rounded-2xl bg-base-100 border border-base-300 shadow-sm">
@@ -357,7 +390,7 @@ defmodule QuizirWeb.GameLive.Play do
                 </div>
 
                 <%= if @is_host do %>
-                  <div class="mt-8">
+                  <div class="mt-8 flex flex-col items-center gap-4">
                     <.button
                       id="host-start-game-btn"
                       variant="primary"
@@ -366,6 +399,44 @@ defmodule QuizirWeb.GameLive.Play do
                     >
                       <.icon name="hero-play" class="size-6 mr-1" /> Démarrer la partie
                     </.button>
+
+                    <%= if @current_player == nil do %>
+                      <div
+                        id="host-join-card"
+                        class="mt-2 p-4 rounded-2xl bg-base-200/80 border border-base-300 max-w-sm w-full text-center"
+                      >
+                        <p class="text-xs font-semibold text-zinc-500 mb-2">
+                          Voulez-vous aussi participer au quiz comme joueur ?
+                        </p>
+                        <form phx-submit="host_join" class="flex gap-2">
+                          <input
+                            type="text"
+                            name="nickname"
+                            id="host-player-name-input"
+                            value={@host_join_nickname}
+                            placeholder="Votre pseudo de joueur"
+                            maxlength="20"
+                            required
+                            class="input input-sm flex-1 font-semibold"
+                          />
+                          <.button
+                            id="host-join-btn"
+                            type="submit"
+                            class="btn btn-sm btn-secondary font-bold"
+                          >
+                            Participer
+                          </.button>
+                        </form>
+                      </div>
+                    <% else %>
+                      <div
+                        id="host-playing-badge"
+                        class="badge badge-success badge-sm gap-1 py-3 px-4 font-semibold"
+                      >
+                        <.icon name="hero-check" class="size-3.5" /> Vous participez en tant que
+                        <strong class="ml-1">{@current_player.name}</strong>
+                      </div>
+                    <% end %>
                   </div>
                 <% else %>
                   <div

@@ -43,10 +43,10 @@ defmodule QuizirWeb.Layouts do
         </.link>
       </div>
       <div class="flex-none">
-        <ul class="flex px-1 space-x-3 items-center">
+        <ul class="flex px-1 space-x-2 sm:space-x-3 items-center">
           <li>
             <.link navigate={~p"/quizzes"} class="btn btn-ghost btn-sm font-medium">
-              Mes Quiz
+              Quiz
             </.link>
           </li>
           <li>
@@ -54,6 +54,66 @@ defmodule QuizirWeb.Layouts do
               <.icon name="hero-play" class="size-4" /> Rejoindre
             </.link>
           </li>
+
+          <%= if @current_scope && @current_scope.user do %>
+            <li class="dropdown dropdown-end">
+              <div
+                tabindex="0"
+                role="button"
+                id="user-menu-btn"
+                class="btn btn-ghost btn-sm gap-1 font-semibold"
+              >
+                <.icon name="hero-user-circle" class="size-4 text-primary" />
+                <span class="max-w-[100px] truncate">{@current_scope.user.username}</span>
+                <.icon name="hero-chevron-down" class="size-3 text-zinc-400" />
+              </div>
+              <ul
+                tabindex="0"
+                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-48 border border-base-200 mt-2 z-50"
+              >
+                <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
+                  Connecté en tant que
+                  <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
+                </li>
+                <li>
+                  <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold">
+                    <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
+                  </.link>
+                </li>
+                <div class="divider my-1"></div>
+                <li>
+                  <.link
+                    id="logout-btn"
+                    href={~p"/users/log_out"}
+                    method="delete"
+                    class="text-xs text-error font-semibold"
+                  >
+                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
+                  </.link>
+                </li>
+              </ul>
+            </li>
+          <% else %>
+            <li>
+              <.link
+                id="nav-login-btn"
+                navigate={~p"/users/log_in"}
+                class="btn btn-ghost btn-sm font-medium"
+              >
+                Connexion
+              </.link>
+            </li>
+            <li>
+              <.link
+                id="nav-register-btn"
+                navigate={~p"/users/register"}
+                class="btn btn-outline btn-sm font-medium hidden sm:inline-flex"
+              >
+                S'inscrire
+              </.link>
+            </li>
+          <% end %>
+
           <li>
             <.theme_toggle />
           </li>
