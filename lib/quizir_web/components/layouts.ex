@@ -31,13 +31,17 @@ defmodule QuizirWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
+  attr :container_class, :string,
+    default: "mx-auto max-w-4xl space-y-4",
+    doc: "the class for the inner main container"
+
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
     <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-200 bg-base-100/80 backdrop-blur sticky top-0 z-40">
       <div class="flex-1">
-        <.link navigate={~p"/quizzes"} class="flex w-fit items-center gap-2">
+        <.link navigate={~p"/"} class="flex w-fit items-center gap-2">
           <img src={~p"/images/logo.svg"} width="32" />
           <span class="text-xl font-black tracking-tight text-primary">Quizir</span>
         </.link>
@@ -122,7 +126,7 @@ defmodule QuizirWeb.Layouts do
     </header>
 
     <main class="px-4 py-8 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-4xl space-y-4">
+      <div class={@container_class}>
         {render_slot(@inner_block)}
       </div>
     </main>

@@ -47,11 +47,11 @@ defmodule QuizirWeb.Router do
   scope "/", QuizirWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
     delete "/users/log_out", UserSessionController, :delete
 
     live_session :current_user,
       on_mount: [{QuizirWeb.UserAuth, :mount_current_user}] do
+      live "/", HomeLive, :index
       live "/quizzes", QuizLive.Index, :index
       live "/quizzes/:id", QuizLive.Show, :show
 
