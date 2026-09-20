@@ -189,7 +189,7 @@ defmodule QuizirWeb.HomeLive do
                   <.input
                     field={@join_form[:pin]}
                     id="quick-join-pin"
-                    placeholder="Code PIN (ex: 482910)"
+                    placeholder="Code PIN"
                     phx-hook=".HomePinMask"
                     class="input input-lg w-full text-center font-mono font-black tracking-widest text-2xl uppercase"
                     required
@@ -224,7 +224,7 @@ defmodule QuizirWeb.HomeLive do
       <section class="space-y-4">
         <div class="text-center max-w-xl mx-auto mb-8">
           <span class="badge badge-primary badge-sm uppercase font-bold tracking-widest mb-2">Expérience en direct</span>
-          <h2 class="text-3xl font-extrabold">Une interface captivante conçue pour le jeu</h2>
+          <h2 class="text-3xl font-extrabold">Une interface captivante</h2>
           <p class="text-sm text-base-content/60 mt-1">
             Questions chronométrées, bonus de réactivité et suspense garanti jusqu'au podium.
           </p>
@@ -397,9 +397,6 @@ defmodule QuizirWeb.HomeLive do
       <section class="p-8 sm:p-12 rounded-3xl bg-base-200 border border-base-300 space-y-8">
         <div class="text-center max-w-lg mx-auto">
           <h2 class="text-2xl sm:text-3xl font-extrabold">Pourquoi choisir Quizir ?</h2>
-          <p class="text-sm text-base-content/60 mt-1">
-            La puissance de l'écosystème Elixir/Phoenix au service du divertissement interactif.
-          </p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
@@ -407,9 +404,9 @@ defmodule QuizirWeb.HomeLive do
             <div class="size-12 mx-auto rounded-2xl bg-base-100 flex items-center justify-center text-primary shadow-xs">
               <.icon name="hero-bolt" class="size-6" />
             </div>
-            <h4 class="font-bold text-base">Temps réel BEAM</h4>
+            <h4 class="font-bold text-base">Temps réel</h4>
             <p class="text-xs text-base-content/60">
-              Chaque partie est un processus isolé ultra-robuste avec diffusion PubSub instantanée.
+              Chaque partie est isolée des autres et instantanée.
             </p>
           </div>
 

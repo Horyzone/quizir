@@ -49,7 +49,7 @@ defmodule QuizirWeb.HomeLiveTest do
 
       # Features
       assert html =~ "Pourquoi choisir Quizir ?"
-      assert html =~ "Temps réel BEAM"
+      assert html =~ "Temps réel"
       assert html =~ "Hôte participant"
     end
 
