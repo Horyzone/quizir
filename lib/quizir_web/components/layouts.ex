@@ -39,123 +39,226 @@ defmodule QuizirWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-200 bg-base-100/80 backdrop-blur sticky top-0 z-40">
-      <div class="flex-1">
-        <.link navigate={~p"/"} class="flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="32" height="32" alt="Quizir" class="rounded-lg" />
-          <span class="text-xl font-black tracking-tight text-primary">Quizir</span>
+    <header class="navbar justify-between px-3 sm:px-6 lg:px-8 border-b border-base-200 bg-base-100/80 backdrop-blur sticky top-0 z-40">
+      <div class="flex items-center shrink-0">
+        <.link navigate={~p"/"} class="flex items-center gap-2 group shrink-0">
+          <img
+            src={~p"/images/logo.svg"}
+            width="32"
+            height="32"
+            alt="Quizir"
+            class="rounded-lg transition-transform group-hover:scale-105 shrink-0"
+          />
+          <span class="text-xl font-black tracking-tight text-primary select-none shrink-0">Quizir</span>
         </.link>
       </div>
-      <div class="flex-none">
-        <ul class="flex px-1 space-x-2 sm:space-x-3 items-center">
-          <li>
-            <.link navigate={~p"/quizzes"} class="btn btn-ghost btn-sm font-medium">
-              Explorer
-            </.link>
-          </li>
-          <li>
-            <.link
-              navigate={~p"/games"}
-              id="nav-live-games-btn"
-              class="btn btn-ghost btn-sm font-medium gap-1.5 hidden md:inline-flex"
+
+      <!-- Desktop Navigation (md and above) -->
+      <div class="hidden md:flex items-center gap-2 lg:gap-3">
+        <.link navigate={~p"/quizzes"} class="btn btn-ghost btn-sm font-medium">
+          Explorer
+        </.link>
+        <.link
+          navigate={~p"/games"}
+          id="nav-live-games-btn"
+          class="btn btn-ghost btn-sm font-medium gap-1.5"
+        >
+          <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span> Parties
+        </.link>
+        <%= if @current_scope && @current_scope.user do %>
+          <.link navigate={~p"/my-quizzes"} class="btn btn-ghost btn-sm font-medium">
+            Mes quiz
+          </.link>
+        <% end %>
+        <.link navigate={~p"/join"} class="btn btn-primary btn-sm font-bold gap-1 shadow-sm">
+          <.icon name="hero-play" class="size-4" /> Rejoindre
+        </.link>
+
+        <%= if @current_scope && @current_scope.user do %>
+          <div class="dropdown dropdown-end">
+            <div
+              tabindex="0"
+              role="button"
+              id="user-menu-btn"
+              class="btn btn-ghost btn-sm gap-1.5 font-semibold"
             >
-              <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span> Parties
-            </.link>
-          </li>
-          <%= if @current_scope && @current_scope.user do %>
-            <li class="hidden sm:block">
-              <.link navigate={~p"/my-quizzes"} class="btn btn-ghost btn-sm font-medium">
-                Mes quiz
-              </.link>
-            </li>
-          <% end %>
-          <li>
-            <.link navigate={~p"/join"} class="btn btn-primary btn-sm font-bold gap-1 shadow-sm">
-              <.icon name="hero-play" class="size-4" /> Rejoindre
-            </.link>
-          </li>
+              <.icon name="hero-user-circle" class="size-4 text-primary" />
+              <span class="max-w-[120px] truncate">{@current_scope.user.username}</span>
+              <.icon name="hero-chevron-down" class="size-3 text-zinc-400" />
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
+            >
+              <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
+                Connecté en tant que
+                <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
+              </li>
+              <li>
+                <.link
+                  navigate={~p"/my-quizzes"}
+                  id="nav-my-quizzes-btn"
+                  class="text-xs font-semibold"
+                >
+                  <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold">
+                  <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
+                </.link>
+              </li>
+              <li>
+                <.link
+                  navigate={~p"/users/settings"}
+                  id="nav-settings-btn"
+                  class="text-xs font-semibold"
+                >
+                  <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
+                </.link>
+              </li>
+              <div class="divider my-1"></div>
+              <li>
+                <.link
+                  id="logout-btn"
+                  href={~p"/users/log_out"}
+                  method="delete"
+                  class="text-xs text-error font-semibold"
+                >
+                  <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
+                </.link>
+              </li>
+            </ul>
+          </div>
+        <% else %>
+          <.link
+            id="nav-login-btn"
+            navigate={~p"/users/log_in"}
+            class="btn btn-ghost btn-sm font-medium"
+          >
+            Connexion
+          </.link>
+          <.link
+            id="nav-register-btn"
+            navigate={~p"/users/register"}
+            class="btn btn-outline btn-sm font-medium"
+          >
+            S'inscrire
+          </.link>
+        <% end %>
 
-          <%= if @current_scope && @current_scope.user do %>
-            <li class="dropdown dropdown-end">
-              <div
-                tabindex="0"
-                role="button"
-                id="user-menu-btn"
-                class="btn btn-ghost btn-sm gap-1 font-semibold"
-              >
-                <.icon name="hero-user-circle" class="size-4 text-primary" />
-                <span class="max-w-[100px] truncate">{@current_scope.user.username}</span>
-                <.icon name="hero-chevron-down" class="size-3 text-zinc-400" />
-              </div>
-              <ul
-                tabindex="0"
-                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
-              >
-                <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
-                  Connecté en tant que
-                  <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
-                </li>
-                <li>
-                  <.link
-                    navigate={~p"/my-quizzes"}
-                    id="nav-my-quizzes-btn"
-                    class="text-xs font-semibold"
-                  >
-                    <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
-                  </.link>
-                </li>
-                <li>
-                  <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold">
-                    <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
-                  </.link>
-                </li>
-                <li>
-                  <.link
-                    navigate={~p"/users/settings"}
-                    id="nav-settings-btn"
-                    class="text-xs font-semibold"
-                  >
-                    <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
-                  </.link>
-                </li>
-                <div class="divider my-1"></div>
-                <li>
-                  <.link
-                    id="logout-btn"
-                    href={~p"/users/log_out"}
-                    method="delete"
-                    class="text-xs text-error font-semibold"
-                  >
-                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
-                  </.link>
-                </li>
-              </ul>
-            </li>
-          <% else %>
-            <li>
-              <.link
-                id="nav-login-btn"
-                navigate={~p"/users/log_in"}
-                class="btn btn-ghost btn-sm font-medium"
-              >
-                Connexion
-              </.link>
-            </li>
-            <li>
-              <.link
-                id="nav-register-btn"
-                navigate={~p"/users/register"}
-                class="btn btn-outline btn-sm font-medium hidden sm:inline-flex"
-              >
-                S'inscrire
-              </.link>
-            </li>
-          <% end %>
+        <.theme_toggle />
+      </div>
 
-          <li>
-            <.theme_toggle />
-          </li>
-        </ul>
+      <!-- Mobile Navigation (< md) -->
+      <div class="flex md:hidden items-center gap-1.5 sm:gap-2">
+        <.link
+          navigate={~p"/join"}
+          class="btn btn-primary btn-sm font-bold gap-1 px-2.5 shadow-xs"
+          title="Rejoindre avec un PIN"
+        >
+          <.icon name="hero-play" class="size-4 shrink-0" />
+          <span>Rejoindre</span>
+        </.link>
+
+        <.theme_toggle />
+
+        <%= if @current_scope && @current_scope.user do %>
+          <div class="dropdown dropdown-end">
+            <div
+              tabindex="0"
+              role="button"
+              id="mobile-user-menu-btn"
+              class="btn btn-ghost btn-sm btn-circle"
+              aria-label="Menu utilisateur"
+            >
+              <.icon name="hero-user-circle" class="size-6 text-primary" />
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-56 border border-base-200 mt-2 z-50"
+            >
+              <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
+                Connecté en tant que
+                <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
+              </li>
+              <li>
+                <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/games"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-globe-alt" class="size-4 text-emerald-500" /> Parties en cours
+                </.link>
+              </li>
+              <div class="divider my-1"></div>
+              <li>
+                <.link navigate={~p"/my-quizzes"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/users/settings"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
+                </.link>
+              </li>
+              <div class="divider my-1"></div>
+              <li>
+                <.link
+                  href={~p"/users/log_out"}
+                  method="delete"
+                  class="text-xs text-error font-semibold py-2"
+                >
+                  <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
+                </.link>
+              </li>
+            </ul>
+          </div>
+        <% else %>
+          <div class="dropdown dropdown-end">
+            <div
+              tabindex="0"
+              role="button"
+              id="mobile-guest-menu-btn"
+              class="btn btn-ghost btn-sm btn-circle"
+              aria-label="Menu de navigation"
+            >
+              <.icon name="hero-bars-3" class="size-5" />
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
+            >
+              <li>
+                <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/games"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-globe-alt" class="size-4 text-emerald-500" /> Parties en cours
+                </.link>
+              </li>
+              <div class="divider my-1"></div>
+              <li>
+                <.link navigate={~p"/users/log_in"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-arrow-left-on-rectangle" class="size-4 text-primary" /> Connexion
+                </.link>
+              </li>
+              <li>
+                <.link navigate={~p"/users/register"} class="text-xs font-semibold py-2">
+                  <.icon name="hero-user-plus" class="size-4 text-primary" /> S'inscrire
+                </.link>
+              </li>
+            </ul>
+          </div>
+        <% end %>
       </div>
     </header>
 

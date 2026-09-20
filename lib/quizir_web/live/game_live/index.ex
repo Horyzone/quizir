@@ -127,20 +127,22 @@ defmodule QuizirWeb.GameLive.Index do
             </p>
           </div>
 
-          <div class="flex items-center gap-3 w-full sm:w-auto">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0">
             <.link
               navigate={~p"/join"}
               id="join-private-btn"
-              class="btn btn-outline btn-md font-bold gap-2 flex-1 sm:flex-initial"
+              class="btn btn-outline font-bold gap-2 px-5 py-2.5 h-auto min-h-11 whitespace-nowrap justify-center text-sm shadow-xs hover:border-amber-500 hover:bg-amber-500/10 hover:text-amber-600 transition-all"
             >
-              <.icon name="hero-lock-closed" class="size-4 text-amber-500" /> Rejoindre avec un PIN
+              <.icon name="hero-lock-closed" class="size-4 text-amber-500 shrink-0" />
+              <span>Rejoindre avec un PIN</span>
             </.link>
             <.link
               navigate={~p"/quizzes"}
               id="launch-own-game-btn"
-              class="btn btn-primary btn-md font-bold gap-2 flex-1 sm:flex-initial shadow-md"
+              class="btn btn-primary font-bold gap-2 px-5 py-2.5 h-auto min-h-11 whitespace-nowrap justify-center text-sm shadow-md hover:shadow-lg transition-all"
             >
-              <.icon name="hero-play" class="size-4" /> Lancer un quiz
+              <.icon name="hero-play" class="size-4 shrink-0" />
+              <span>Lancer un quiz</span>
             </.link>
           </div>
         </div>
@@ -160,11 +162,17 @@ defmodule QuizirWeb.GameLive.Index do
             <p class="text-sm text-base-content/60 max-w-md mx-auto mb-6">
               Soyez le premier à lancer une session ouverte à toute la communauté ou rejoignez un salon privé avec son code PIN.
             </p>
-            <div class="flex items-center justify-center gap-3">
-              <.link navigate={~p"/quizzes"} class="btn btn-primary btn-sm font-bold gap-2">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <.link
+                navigate={~p"/quizzes"}
+                class="btn btn-primary btn-sm font-bold gap-2 w-full sm:w-auto"
+              >
                 <.icon name="hero-play" class="size-4" /> Lancer une partie publique
               </.link>
-              <.link navigate={~p"/join"} class="btn btn-outline btn-sm font-bold gap-2">
+              <.link
+                navigate={~p"/join"}
+                class="btn btn-outline btn-sm font-bold gap-2 w-full sm:w-auto"
+              >
                 <.icon name="hero-key" class="size-4" /> Entrer un code PIN
               </.link>
             </div>
