@@ -85,15 +85,37 @@ defmodule Quizir.Games.SessionTest do
       assert {:error, :invalid_name} = Session.join_player(pid, "   ")
     end
 
-    test "validates access code on private quiz" do
+    test "allows joining session without access code even if quiz is private" do
       quiz = sample_quiz(visibility: "private", access_code: "SECRET")
       %{pid: pid} = start_session(quiz)
 
-      assert {:error, :invalid_access_code} =
-               Session.join_player(pid, "Alice", access_code: "WRONG")
+      assert {:ok, player} = Session.join_player(pid, "Alice")
+      assert player.name == "Alice"
+    end
 
-      assert {:ok, _player} =
-               Session.join_player(pid, "Alice", access_code: "SECRET")
+    test "records session visibility (public or private)" do
+      quiz = sample_quiz()
+      code_pub = "PUB123"
+      code_priv = "PRV456"
+
+      pid_pub =
+        start_supervised!(%{
+          id: :session_pub,
+          start:
+            {Session, :start_link,
+             [[code: code_pub, host_token: "h1", quiz: quiz, visibility: "public"]]}
+        })
+
+      pid_priv =
+        start_supervised!(%{
+          id: :session_priv,
+          start:
+            {Session, :start_link,
+             [[code: code_priv, host_token: "h2", quiz: quiz, visibility: "private"]]}
+        })
+
+      assert Session.get_state(pid_pub).visibility == "public"
+      assert Session.get_state(pid_priv).visibility == "private"
     end
 
     test "starts game with valid host token" do

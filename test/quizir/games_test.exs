@@ -56,6 +56,25 @@ defmodule Quizir.GamesTest do
       assert ans.is_correct == true
     end
 
+    test "create_game/2 supports public and private visibility" do
+      quiz = create_persisted_quiz()
+
+      {:ok, %{code: pub_code, visibility: pub_vis}} =
+        Games.create_game(quiz, visibility: "public")
+
+      {:ok, %{code: priv_code, visibility: priv_vis}} =
+        Games.create_game(quiz, visibility: "private")
+
+      assert pub_vis == "public"
+      assert priv_vis == "private"
+
+      public_games = Games.list_active_public_games()
+      public_codes = Enum.map(public_games, & &1.code)
+
+      assert pub_code in public_codes
+      refute priv_code in public_codes
+    end
+
     test "returns :not_found for non-existent game code" do
       assert Games.game_exists?("UNKNOWN") == false
       assert Games.get_game_state("UNKNOWN") == {:error, :not_found}

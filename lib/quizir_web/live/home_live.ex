@@ -20,7 +20,7 @@ defmodule QuizirWeb.HomeLive do
 
     {:ok,
      socket
-     |> assign(:page_title, "Accueil - Quiz Multijoueur en Direct")
+     |> assign(:page_title, "Accueil - Quizir")
      |> assign(:recent_quizzes, recent_quizzes)
      |> assign(:total_quizzes_count, length(all_quizzes))
      |> assign(:join_form, join_form)
@@ -68,14 +68,6 @@ defmodule QuizirWeb.HomeLive do
              |> put_flash(:info, "Bienvenue #{player.name} dans la partie !")
              |> push_navigate(
                to: ~p"/games/#{clean_pin}?player_id=#{player.id}&name=#{URI.encode(player.name)}"
-             )}
-
-          {:error, :invalid_access_code} ->
-            # Si le quiz est privé, on redirige vers la page /join avec PIN pré-rempli
-            {:noreply,
-             push_navigate(
-               socket,
-               to: ~p"/join?pin=#{clean_pin}&nickname=#{URI.encode(clean_nickname)}"
              )}
 
           {:error, :game_already_started} ->

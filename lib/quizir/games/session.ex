@@ -13,6 +13,7 @@ defmodule Quizir.Games.Session do
     :code,
     :host_token,
     :quiz,
+    visibility: "public",
     status: :lobby,
     questions: [],
     current_question_index: 0,
@@ -79,6 +80,12 @@ defmodule Quizir.Games.Session do
     quiz = Keyword.fetch!(opts, :quiz)
     pubsub = Keyword.get(opts, :pubsub, Quizir.PubSub)
     timer_interval = Keyword.get(opts, :timer_interval, 1000)
+    raw_visibility = Keyword.get(opts, :visibility, "public")
+
+    visibility =
+      if to_string(raw_visibility) in ["public", "private"],
+        do: to_string(raw_visibility),
+        else: "public"
 
     questions = quiz.questions || []
 
@@ -86,6 +93,7 @@ defmodule Quizir.Games.Session do
       code: code,
       host_token: host_token,
       quiz: quiz,
+      visibility: visibility,
       status: :lobby,
       questions: questions,
       current_question_index: 0,
@@ -105,16 +113,12 @@ defmodule Quizir.Games.Session do
   end
 
   @impl true
-  def handle_call({:join_player, name, opts}, _from, %{status: :lobby} = state) do
+  def handle_call({:join_player, name, _opts}, _from, %{status: :lobby} = state) do
     clean_name = String.trim(name || "")
 
     cond do
       clean_name == "" ->
         {:reply, {:error, :invalid_name}, state}
-
-      state.quiz.visibility == "private" and
-          opts[:access_code] != state.quiz.access_code ->
-        {:reply, {:error, :invalid_access_code}, state}
 
       true ->
         player_id = generate_player_id()

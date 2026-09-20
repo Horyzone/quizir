@@ -53,6 +53,15 @@ defmodule QuizirWeb.Layouts do
               Quiz
             </.link>
           </li>
+          <li>
+            <.link
+              navigate={~p"/games"}
+              id="nav-live-games-btn"
+              class="btn btn-ghost btn-sm font-medium gap-1.5 hidden md:inline-flex"
+            >
+              <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span> Parties
+            </.link>
+          </li>
           <%= if @current_scope && @current_scope.user do %>
             <li class="hidden sm:block">
               <.link navigate={~p"/my-quizzes"} class="btn btn-ghost btn-sm font-medium">

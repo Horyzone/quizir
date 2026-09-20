@@ -58,6 +58,7 @@ defmodule QuizirWeb.Router do
       live "/quizzes/:id", QuizLive.Show, :show
 
       # Routes Jeux Multijoueur
+      live "/games", GameLive.Index, :index
       live "/join", GameLive.Join, :join
       live "/games/:code", GameLive.Play, :play
     end

@@ -57,7 +57,7 @@ defmodule QuizirWeb.QuizLive.Index do
           <div>
             <h1 class="text-3xl font-bold">Quiz disponibles</h1>
             <p class="text-sm text-zinc-500">
-              Parcourez, lancez ou créez de nouveaux quiz multijoueurs.
+              Parcourez, lancez ou créez de nouveaux quiz.
             </p>
           </div>
           <.button id="new-quiz-button" navigate={~p"/quizzes/new"}>

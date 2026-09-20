@@ -22,7 +22,7 @@ defmodule QuizirWeb.GameLive.Play do
 
         join_form =
           if not is_host and current_player == nil do
-            to_form(%{"name" => params["name"] || "", "access_code" => ""})
+            to_form(%{"name" => params["name"] || ""})
           else
             nil
           end
@@ -38,6 +38,7 @@ defmodule QuizirWeb.GameLive.Play do
          socket
          |> assign(:code, code)
          |> assign(:quiz, game_state.quiz)
+         |> assign(:visibility, game_state.visibility)
          |> assign(:is_host, is_host)
          |> assign(:host_token, host_token)
          |> assign(:current_player, current_player)
@@ -164,11 +165,10 @@ defmodule QuizirWeb.GameLive.Play do
   # --- User Event Handlers ---
 
   @impl true
-  def handle_event("inline_join", %{"name" => name} = params, socket) do
+  def handle_event("inline_join", %{"name" => name}, socket) do
     clean_name = String.trim(name || "")
-    access_code = String.trim(params["access_code"] || "")
 
-    case Games.join_game(socket.assigns.code, clean_name, access_code: access_code) do
+    case Games.join_game(socket.assigns.code, clean_name) do
       {:ok, player} ->
         {:noreply,
          socket
@@ -176,9 +176,6 @@ defmodule QuizirWeb.GameLive.Play do
          |> assign(:join_form, nil)
          |> assign(:join_error, nil)
          |> put_flash(:info, "Vous avez rejoint la partie !")}
-
-      {:error, :invalid_access_code} ->
-        {:noreply, assign(socket, :join_error, "Code d'accès incorrect.")}
 
       {:error, :game_already_started} ->
         {:noreply, assign(socket, :join_error, "La partie a déjà commencé.")}
@@ -196,9 +193,7 @@ defmodule QuizirWeb.GameLive.Play do
     clean_name = String.trim(nickname || "")
 
     if clean_name != "" do
-      case Games.join_game(socket.assigns.code, clean_name,
-             access_code: socket.assigns.quiz.access_code
-           ) do
+      case Games.join_game(socket.assigns.code, clean_name) do
         {:ok, player} ->
           {:noreply,
            socket
@@ -337,16 +332,6 @@ defmodule QuizirWeb.GameLive.Play do
                 required
               />
 
-              <%= if @quiz.visibility == "private" do %>
-                <.input
-                  field={@join_form[:access_code]}
-                  id="inline-access-code"
-                  placeholder="Code d'accès du quiz..."
-                  class="input w-full text-center font-mono"
-                  required
-                />
-              <% end %>
-
               <.button
                 id="inline-join-btn"
                 variant="primary"
@@ -361,9 +346,24 @@ defmodule QuizirWeb.GameLive.Play do
           <%= if @status == :lobby do %>
             <div id="lobby-screen" class="space-y-6">
               <div class="text-center p-8 rounded-3xl bg-base-100 border border-base-300 shadow-sm">
-                <p class="text-xs uppercase font-bold tracking-widest text-primary mb-2">
-                  Lobby d'attente
-                </p>
+                <div class="flex items-center justify-center gap-2 mb-3">
+                  <p class="text-xs uppercase font-bold tracking-widest text-primary">
+                    Lobby d'attente
+                  </p>
+                  <span class={[
+                    "badge badge-xs font-semibold gap-1",
+                    if(@visibility == "public",
+                      do: "badge-success text-white",
+                      else: "badge-warning"
+                    )
+                  ]}>
+                    <%= if @visibility == "public" do %>
+                      <.icon name="hero-globe-alt" class="size-3" /> Partie Publique
+                    <% else %>
+                      <.icon name="hero-lock-closed" class="size-3" /> Partie Privée
+                    <% end %>
+                  </span>
+                </div>
                 <h1 class="text-4xl font-extrabold mb-3">{@quiz.title}</h1>
                 <p class="text-zinc-600 max-w-lg mx-auto text-sm">
                   {@quiz.description || "Préparez vos neurones, la partie va commencer !"}

@@ -56,16 +56,30 @@ defmodule QuizirWeb.QuizLive.Show do
   end
 
   @impl true
-  def handle_event("start_game", _params, socket) do
-    case Quizir.Games.create_game(socket.assigns.quiz) do
-      {:ok, %{code: code, host_token: host_token}} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Partie créée ! Code de salon : #{code}")
-         |> push_navigate(to: ~p"/games/#{code}?host_token=#{host_token}")}
+  def handle_event("start_game", params, socket) do
+    quiz = socket.assigns.quiz
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Impossible de démarrer la partie pour ce quiz.")}
+    can_start? =
+      quiz.visibility == "public" or Quizzes.can_manage_quiz?(quiz, socket.assigns.current_user)
+
+    if can_start? do
+      visibility = params["visibility"] || "public"
+
+      case Quizir.Games.create_game(quiz, visibility: visibility) do
+        {:ok, %{code: code, host_token: host_token}} ->
+          vis_label = if visibility == "public", do: "publique", else: "privée"
+
+          {:noreply,
+           socket
+           |> put_flash(:info, "Partie #{vis_label} créée ! Code de salon : #{code}")
+           |> push_navigate(to: ~p"/games/#{code}?host_token=#{host_token}")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Impossible de démarrer la partie pour ce quiz.")}
+      end
+    else
+      {:noreply,
+       put_flash(socket, :error, "Ce quiz est privé. Seul son créateur peut lancer une partie.")}
     end
   end
 
@@ -91,7 +105,7 @@ defmodule QuizirWeb.QuizLive.Show do
                 navigate={~p"/quizzes/#{@quiz}/edit"}
                 class="btn btn-outline btn-sm gap-1"
               >
-                <.icon name="hero-pencil-square" class="size-4" /> Modifier
+                <.icon name="hero-pencil" class="size-4" /> Modifier
               </.button>
 
               <.button
@@ -102,24 +116,83 @@ defmodule QuizirWeb.QuizLive.Show do
               >
                 <.icon name="hero-trash" class="size-4" /> Supprimer
               </.button>
-            <% else %>
-              <.button
-                id="duplicate-quiz-btn"
-                phx-click="duplicate"
-                class="btn btn-outline btn-sm gap-1"
-              >
-                <.icon name="hero-document-duplicate" class="size-4" /> Dupliquer
-              </.button>
             <% end %>
 
-            <.button
-              id="start-game-btn"
-              variant="primary"
-              phx-click="start_game"
-              class="btn btn-primary btn-sm gap-1 shadow-sm hover:shadow"
-            >
-              <.icon name="hero-play" class="size-4" /> Lancer une partie
-            </.button>
+            <%= if @quiz.visibility == "public" or @is_owner do %>
+              <%= if !@is_owner do %>
+                <.button
+                  id="duplicate-quiz-btn"
+                  phx-click="duplicate"
+                  class="btn btn-outline btn-sm gap-1"
+                >
+                  <.icon name="hero-document-duplicate" class="size-4" /> Dupliquer
+                </.button>
+              <% end %>
+
+              <div class="dropdown dropdown-end">
+                <div
+                  tabindex="0"
+                  role="button"
+                  id="start-game-btn"
+                  phx-click="start_game"
+                  phx-value-visibility="public"
+                  class="btn btn-primary btn-sm gap-1 shadow-sm hover:shadow"
+                >
+                  <.icon name="hero-play" class="size-4" /> Lancer une partie
+                  <.icon name="hero-chevron-down" class="size-3 ml-0.5 opacity-70" />
+                </div>
+                <ul
+                  tabindex="0"
+                  class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-64 border border-base-200 mt-2 z-50 space-y-1"
+                >
+                  <li class="menu-title px-3 py-1 text-xs text-base-content/50 font-bold">
+                    Choisir le mode de session
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      id="launch-public-session-btn"
+                      phx-click="start_game"
+                      phx-value-visibility="public"
+                      class="flex items-center justify-between p-2 rounded-xl text-left"
+                    >
+                      <div class="flex items-center gap-2 font-bold text-sm">
+                        <.icon name="hero-globe-alt" class="size-4 text-emerald-500 shrink-0" />
+                        <div>
+                          <div>Partie Publique</div>
+                          <span class="text-xs font-normal text-base-content/60 block">
+                            Visible par tous, sans code PIN
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      id="launch-private-session-btn"
+                      phx-click="start_game"
+                      phx-value-visibility="private"
+                      class="flex items-center justify-between p-2 rounded-xl text-left"
+                    >
+                      <div class="flex items-center gap-2 font-bold text-sm">
+                        <.icon name="hero-lock-closed" class="size-4 text-amber-500 shrink-0" />
+                        <div>
+                          <div>Partie Privée</div>
+                          <span class="text-xs font-normal text-base-content/60 block">
+                            Code PIN obligatoire pour entrer
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            <% else %>
+              <span class="text-xs text-amber-600 font-semibold bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
+                <.icon name="hero-lock-closed" class="size-4" /> Quiz privé (réservé au créateur)
+              </span>
+            <% end %>
           </div>
         </div>
 
@@ -164,17 +237,29 @@ defmodule QuizirWeb.QuizLive.Show do
             </div>
           </div>
 
-          <%= if @quiz.visibility == "private" && @quiz.access_code do %>
-            <div class="mt-4 pt-4 border-t border-base-200 flex items-center gap-2">
-              <span class="text-xs font-semibold uppercase text-zinc-500">Code d'accès requis :</span>
-              <span
-                id="quiz-access-code-badge"
-                class="badge badge-outline font-mono font-bold tracking-wider"
-              >
-                {@quiz.access_code}
+          <div class="mt-4 pt-4 border-t border-base-200 flex items-center justify-between gap-2 text-xs">
+            <%= if @quiz.visibility == "public" do %>
+              <span class="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
+                <.icon name="hero-globe-alt" class="size-4 shrink-0" />
+                Quiz public : tout le monde peut créer une partie ou dupliquer ce quiz.
               </span>
-            </div>
-          <% end %>
+            <% else %>
+              <div class="flex flex-wrap items-center justify-between w-full gap-2">
+                <span class="text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-medium">
+                  <.icon name="hero-lock-closed" class="size-4 shrink-0" />
+                  Quiz privé : seul le propriétaire peut lancer des parties ou modifier ce quiz.
+                </span>
+                <%= if @quiz.access_code do %>
+                  <span
+                    id="quiz-access-code-badge"
+                    class="badge badge-outline font-mono font-bold tracking-wider"
+                  >
+                    {@quiz.access_code}
+                  </span>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
         </div>
 
         <div class="space-y-6">
