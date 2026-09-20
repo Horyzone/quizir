@@ -17,7 +17,6 @@ defmodule Quizir.QuizzesFixtures do
       attrs
       |> Map.drop([:user, :user_id])
       |> Enum.into(%{
-        access_code: "some access_code",
         description: "some description",
         title: "some title",
         visibility: "public"

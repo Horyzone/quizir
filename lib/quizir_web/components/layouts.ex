@@ -50,7 +50,7 @@ defmodule QuizirWeb.Layouts do
         <ul class="flex px-1 space-x-2 sm:space-x-3 items-center">
           <li>
             <.link navigate={~p"/quizzes"} class="btn btn-ghost btn-sm font-medium">
-              Quiz
+              Explorer
             </.link>
           </li>
           <li>

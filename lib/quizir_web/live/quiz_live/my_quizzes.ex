@@ -231,16 +231,6 @@ defmodule QuizirWeb.QuizLive.MyQuizzes do
                     <.icon name="hero-lock-closed" class="size-3 text-amber-600" /> Privé
                   <% end %>
                 </span>
-
-                <%= if quiz.visibility == "private" && quiz.access_code do %>
-                  <div
-                    class="badge badge-outline badge-sm font-mono gap-1 text-xs text-base-content/70"
-                    title="Code d'accès PIN pour les joueurs"
-                  >
-                    <.icon name="hero-key" class="size-3 text-amber-500" /> PIN :
-                    <strong class="text-base-content">{quiz.access_code}</strong>
-                  </div>
-                <% end %>
               </div>
 
               <h2 class="text-xl font-bold text-base-content group-hover:text-primary transition-colors">

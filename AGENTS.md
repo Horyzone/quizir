@@ -24,7 +24,7 @@ Guide opérationnel, contexte métier et contraintes techniques pour les agents 
 L'application suit la séparation stricte par contextes métier :
 
 * `lib/quizir/quizzes/` :
-  * `Quiz` : titre, description, visibilité (`public` / `private`), code d'accès (`access_code`).
+  * `Quiz` : titre, description, visibilité (`public` / `private`).
   * `Question` : énoncé (`body`), ordre d'affichage (`order`), délai imparti en secondes (`time_limit_seconds`).
   * `AnswerOption` : texte du choix (`body`), statut de validité (`is_correct`).
   * Schémas imbriqués gérés via `cast_assoc/3`.

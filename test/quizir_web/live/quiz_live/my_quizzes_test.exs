@@ -41,8 +41,7 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
         quiz_fixture(%{
           user: user,
           title: "Mon Quiz Privé",
-          visibility: "private",
-          access_code: "SECRET123"
+          visibility: "private"
         })
 
       other_quiz =
@@ -88,7 +87,7 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
       refute has_element?(view, "#quiz-link-#{my_private.id}")
     end
 
-    test "filters by private quizzes and shows access code", %{
+    test "filters by private quizzes", %{
       conn: conn,
       my_public: my_public,
       my_private: my_private
@@ -99,7 +98,6 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
       view |> element("#filter-private-btn") |> render_click()
 
       assert has_element?(view, "#quiz-link-#{my_private.id}")
-      assert has_element?(view, "#my-quizzes", "SECRET123")
       refute has_element?(view, "#quiz-link-#{my_public.id}")
     end
   end

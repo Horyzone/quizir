@@ -135,12 +135,12 @@ defmodule QuizirWeb.QuizLive.ShowTest do
   end
 
   describe "GET /quizzes/:id (General Show interactions)" do
-    test "renders access code badge for private quiz", %{conn: conn} do
-      quiz = create_detailed_quiz(%{visibility: "private", access_code: "VIP99"})
+    test "renders private notice for private quiz", %{conn: conn} do
+      quiz = create_detailed_quiz(%{visibility: "private"})
 
       {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}")
 
-      assert has_element?(view, "#quiz-access-code-badge", "VIP99")
+      assert has_element?(view, "#quiz-details-card", "Quiz privé")
     end
 
     test "clicks start game button and redirects to game lobby", %{conn: conn} do

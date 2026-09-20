@@ -9,7 +9,6 @@ defmodule Quizir.Games.SessionTest do
       id: 1,
       title: "Quiz Test",
       visibility: Keyword.get(opts, :visibility, "public"),
-      access_code: Keyword.get(opts, :access_code, nil),
       questions: [
         %Question{
           id: 10,
@@ -85,8 +84,8 @@ defmodule Quizir.Games.SessionTest do
       assert {:error, :invalid_name} = Session.join_player(pid, "   ")
     end
 
-    test "allows joining session without access code even if quiz is private" do
-      quiz = sample_quiz(visibility: "private", access_code: "SECRET")
+    test "allows joining session even if quiz is private" do
+      quiz = sample_quiz(visibility: "private")
       %{pid: pid} = start_session(quiz)
 
       assert {:ok, player} = Session.join_player(pid, "Alice")

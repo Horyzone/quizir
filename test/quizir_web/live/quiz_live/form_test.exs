@@ -8,7 +8,6 @@ defmodule QuizirWeb.QuizLive.FormTest do
     "title" => "Quiz sur la Géographie",
     "description" => "Un test de connaissances géographiques",
     "visibility" => "public",
-    "access_code" => "",
     "questions" => %{
       "0" => %{
         "body" => "Quelle est la capitale de l'Australie ?",
@@ -37,7 +36,7 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert has_element?(view, "#quiz-title")
       assert has_element?(view, "#quiz-description")
       assert has_element?(view, "#quiz-visibility")
-      assert has_element?(view, "#quiz-access-code")
+      refute has_element?(view, "#quiz-access-code")
       assert has_element?(view, "#question-card-0")
       assert has_element?(view, "#question-0-body")
       assert has_element?(view, "#question-0-time-limit")
@@ -58,15 +57,15 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert response =~ "can&#39;t be blank"
     end
 
-    test "validates access_code when visibility is private", %{conn: conn} do
+    test "private quiz does not require access_code", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
       response =
         view
-        |> form("#quiz-form", quiz: %{"visibility" => "private", "access_code" => ""})
+        |> form("#quiz-form", quiz: Map.put(@valid_quiz_params, "visibility", "private"))
         |> render_change()
 
-      assert response =~ "can&#39;t be blank"
+      refute response =~ "can&#39;t be blank"
     end
 
     test "validates time limit boundary (greater than 4, less than 121)", %{conn: conn} do
@@ -177,13 +176,12 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert created.user_id == user.id
     end
 
-    test "creates a private quiz with access code", %{conn: conn} do
+    test "creates a private quiz without access code", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
       private_params =
         @valid_quiz_params
         |> Map.put("visibility", "private")
-        |> Map.put("access_code", "SECRET123")
 
       {:ok, _index_view, html} =
         view
@@ -194,7 +192,6 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert html =~ "Quiz « Quiz sur la Géographie » créé avec succès !"
       created = Quizzes.list_quizzes() |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
       assert created.visibility == "private"
-      assert created.access_code == "SECRET123"
     end
 
     test "renders errors when submitting invalid data", %{conn: conn} do
@@ -290,7 +287,6 @@ defmodule QuizirWeb.QuizLive.FormTest do
         "title" => "Quiz Histoire de France (Mis à jour)",
         "description" => "Description mise à jour",
         "visibility" => "public",
-        "access_code" => "",
         "questions" => %{
           "0" => %{
             "id" => q.id,

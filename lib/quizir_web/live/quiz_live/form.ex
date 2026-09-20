@@ -37,7 +37,6 @@ defmodule QuizirWeb.QuizLive.Form do
       "title" => "",
       "description" => "",
       "visibility" => "public",
-      "access_code" => "",
       "questions" => [
         %{
           "order" => 1,
@@ -67,7 +66,6 @@ defmodule QuizirWeb.QuizLive.Form do
       "title" => quiz.title || "",
       "description" => quiz.description || "",
       "visibility" => quiz.visibility || "public",
-      "access_code" => quiz.access_code || "",
       "questions" =>
         Enum.map(quiz.questions || [], fn q ->
           %{
@@ -310,26 +308,20 @@ defmodule QuizirWeb.QuizLive.Form do
               placeholder="Description brève de votre quiz..."
             />
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
               <.input
                 field={@form[:visibility]}
                 id="quiz-visibility"
                 type="select"
-                label="Visibilité"
+                label="Visibilité du quiz"
                 options={[
-                  {"Public (ouvert à tous)", "public"},
-                  {"Privé (code d'accès requis)", "private"}
+                  {"Public (tout le monde peut lancer une partie ou le dupliquer)", "public"},
+                  {"Privé (réservé exclusivement à votre usage)", "private"}
                 ]}
               />
-              <div>
-                <.input
-                  field={@form[:access_code]}
-                  id="quiz-access-code"
-                  label="Code d'accès"
-                  placeholder="Ex: 4821"
-                  phx-hook=".AccessCodeMask"
-                />
-              </div>
+              <p class="text-xs text-base-content/60 mt-1.5">
+                Un quiz public permet à tous les utilisateurs d'organiser des parties ou d'en créer une copie personnelle.
+              </p>
             </div>
           </div>
 
@@ -502,16 +494,6 @@ defmodule QuizirWeb.QuizLive.Form do
           </div>
         </.form>
       </div>
-
-      <script :type={Phoenix.LiveView.ColocatedHook} name=".AccessCodeMask">
-        export default {
-          mounted() {
-            this.el.addEventListener("input", e => {
-              this.el.value = this.el.value.toUpperCase().replace(/[^A-Z0-9]/g, "")
-            })
-          }
-        }
-      </script>
     </Layouts.app>
     """
   end

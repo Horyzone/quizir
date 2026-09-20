@@ -6,7 +6,6 @@ defmodule Quizir.Quizzes.Quiz do
     field :title, :string
     field :description, :string
     field :visibility, :string, default: "public"
-    field :access_code, :string
 
     belongs_to :user, Quizir.Accounts.User
     has_many :questions, Quizir.Quizzes.Question, on_delete: :delete_all, on_replace: :delete
@@ -17,19 +16,10 @@ defmodule Quizir.Quizzes.Quiz do
   @doc false
   def changeset(quiz, attrs) do
     quiz
-    |> cast(attrs, [:title, :description, :visibility, :access_code])
+    |> cast(attrs, [:title, :description, :visibility])
     |> validate_required([:title, :visibility])
     |> validate_inclusion(:visibility, ["public", "private"])
-    |> validate_access_code_if_private()
     # Permet de recevoir et valider les questions liées
     |> cast_assoc(:questions, with: &Quizir.Quizzes.Question.changeset/2)
-  end
-
-  defp validate_access_code_if_private(changeset) do
-    if get_field(changeset, :visibility) == "private" do
-      validate_required(changeset, [:access_code])
-    else
-      changeset
-    end
   end
 end

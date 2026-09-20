@@ -143,7 +143,6 @@ defmodule Quizir.Quizzes do
       "title" => "#{quiz.title} (copie)",
       "description" => quiz.description,
       "visibility" => quiz.visibility,
-      "access_code" => quiz.access_code,
       "questions" => duplicated_questions
     }
 

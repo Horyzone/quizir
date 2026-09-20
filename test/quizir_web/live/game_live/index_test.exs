@@ -9,7 +9,6 @@ defmodule QuizirWeb.GameLive.IndexTest do
       Quizzes.create_quiz(%{
         title: Keyword.get(opts, :title, "Quiz Public Test"),
         visibility: Keyword.get(opts, :quiz_visibility, "public"),
-        access_code: Keyword.get(opts, :access_code, nil),
         questions: [
           %{
             body: "Question 1",

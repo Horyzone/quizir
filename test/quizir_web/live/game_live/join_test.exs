@@ -7,14 +7,10 @@ defmodule QuizirWeb.GameLive.JoinTest do
   defp create_active_game(opts \\ []) do
     visibility = Keyword.get(opts, :visibility, "public")
 
-    access_code =
-      Keyword.get(opts, :access_code, if(visibility == "private", do: "SECRET", else: nil))
-
     {:ok, quiz} =
       Quizzes.create_quiz(%{
         title: Keyword.get(opts, :title, "Quiz Multijoueur"),
         visibility: visibility,
-        access_code: access_code,
         questions: [
           %{
             body: "Question 1",

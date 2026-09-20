@@ -244,20 +244,10 @@ defmodule QuizirWeb.QuizLive.Show do
                 Quiz public : tout le monde peut créer une partie ou dupliquer ce quiz.
               </span>
             <% else %>
-              <div class="flex flex-wrap items-center justify-between w-full gap-2">
-                <span class="text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-medium">
-                  <.icon name="hero-lock-closed" class="size-4 shrink-0" />
-                  Quiz privé : seul le propriétaire peut lancer des parties ou modifier ce quiz.
-                </span>
-                <%= if @quiz.access_code do %>
-                  <span
-                    id="quiz-access-code-badge"
-                    class="badge badge-outline font-mono font-bold tracking-wider"
-                  >
-                    {@quiz.access_code}
-                  </span>
-                <% end %>
-              </div>
+              <span class="text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-medium">
+                <.icon name="hero-lock-closed" class="size-4 shrink-0" />
+                Quiz privé : seul le propriétaire peut lancer des parties ou modifier ce quiz.
+              </span>
             <% end %>
           </div>
         </div>
