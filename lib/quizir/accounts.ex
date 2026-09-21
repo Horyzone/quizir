@@ -3,6 +3,7 @@ defmodule Quizir.Accounts do
   The Accounts context.
   """
 
+  require Logger
   import Ecto.Query, warn: false
   alias Quizir.Repo
 
@@ -121,6 +122,16 @@ defmodule Quizir.Accounts do
     if user && user.email do
       deliver_user_reset_password_instructions(user, reset_password_url_fun)
     else
+      if is_nil(user) do
+        Logger.info(
+          "[Mailer] Password reset requested for non-existent identifier: #{inspect(identifier)}"
+        )
+      else
+        Logger.warning(
+          "[Mailer] Password reset requested for user '#{user.username}' but no email address is registered."
+        )
+      end
+
       # Do not leak whether user or email exists
       {:ok, :no_email_sent}
     end

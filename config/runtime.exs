@@ -189,6 +189,38 @@ if config_env() != :test do
         retries -> String.to_integer(retries)
       end
 
+    ssl_verify =
+      case System.get_env("SMTP_TLS_VERIFY") do
+        val when val in ~w(none false 0 FALSE) -> :verify_none
+        _ -> :verify_peer
+      end
+
+    cacerts =
+      try do
+        :public_key.cacerts_get()
+      rescue
+        _ -> []
+      end
+
+    tls_opts = [
+      verify: ssl_verify,
+      depth: 10,
+      server_name_indication: String.to_charlist(smtp_host)
+    ]
+
+    tls_opts =
+      if ssl_verify == :verify_peer and is_list(cacerts) and cacerts != [] do
+        tls_opts ++
+          [
+            cacerts: cacerts,
+            customize_hostname_check: [
+              match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+            ]
+          ]
+      else
+        tls_opts
+      end
+
     mailer_config = [
       adapter: Swoosh.Adapters.SMTP,
       relay: smtp_host,
@@ -196,7 +228,9 @@ if config_env() != :test do
       ssl: smtp_ssl,
       tls: smtp_tls,
       auth: smtp_auth,
-      retries: smtp_retries
+      retries: smtp_retries,
+      sockopts: tls_opts,
+      tls_options: tls_opts
     ]
 
     mailer_config =

@@ -1,4 +1,5 @@
 defmodule Quizir.Accounts.UserNotifier do
+  require Logger
   import Swoosh.Email
 
   alias Quizir.Mailer
@@ -82,11 +83,76 @@ defmodule Quizir.Accounts.UserNotifier do
         </html>
         """)
 
-      with {:ok, _metadata} <- Mailer.deliver(email) do
-        {:ok, email}
+      mailer_config = Application.get_env(:quizir, Mailer, [])
+      adapter = Keyword.get(mailer_config, :adapter, Swoosh.Adapters.Local)
+      relay = Keyword.get(mailer_config, :relay, "localhost")
+      port = Keyword.get(mailer_config, :port, "default")
+
+      Logger.info(
+        "[Mailer] Sending password reset instructions to #{user.email} (username: #{user.username}) " <>
+          "using #{inspect(adapter)} via #{relay}:#{port}"
+      )
+
+      case Mailer.deliver(email) do
+        {:ok, metadata} ->
+          Logger.info(
+            "[Mailer] Password reset email successfully delivered to #{user.email}! (metadata: #{inspect(metadata)})"
+          )
+
+          {:ok, email}
+
+        {:error, reason} = error ->
+          Logger.error(
+            "[Mailer] Failed to deliver password reset email to #{user.email}!\n" <>
+              "  Adapter: #{inspect(adapter)}\n" <>
+              "  Relay: #{relay}:#{port}\n" <>
+              "  From: #{from_name} <#{from_email}>\n" <>
+              "  Error: #{format_error(reason)}\n" <>
+              "  Raw reason: #{inspect(reason, pretty: true)}"
+          )
+
+          error
       end
     else
+      Logger.warning(
+        "[Mailer] Cannot send password reset instructions: user '#{user.username}' has no email address configured."
+      )
+
       {:error, :no_email}
     end
   end
+
+  @doc """
+  Formats an email delivery error into a human-readable diagnosis string.
+  """
+  def format_error({:retries_exceeded, {:network_failure, host, {:error, reason}}}) do
+    "Network failure connecting to #{host}: #{format_error(reason)}"
+  end
+
+  def format_error({:options, :incompatible, details}) do
+    "Incompatible SSL/TLS options: #{inspect(details)}. Check SMTP_SSL, SMTP_PORT, or SMTP_TLS_VERIFY settings."
+  end
+
+  def format_error({:tls_alert, {:handshake_failure, details}}) do
+    "TLS handshake failure: #{inspect(details)}. Certificate or cipher mismatch between client and server."
+  end
+
+  def format_error({:bad_cert, :max_path_length_reached}) do
+    "SSL certificate validation error (max_path_length_reached): intermediate CA certificate chain length exceeded."
+  end
+
+  def format_error({:bad_cert, reason}) do
+    "SSL certificate validation error: #{inspect(reason)}. Check SMTP certificate or set SMTP_TLS_VERIFY=none."
+  end
+
+  def format_error({:permanent_failure, host, reason}) do
+    "Permanent SMTP server rejection from #{host}: #{inspect(reason)}"
+  end
+
+  def format_error({:temporary_failure, host, reason}) do
+    "Temporary SMTP server error from #{host}: #{inspect(reason)}"
+  end
+
+  def format_error(reason) when is_binary(reason), do: reason
+  def format_error(reason), do: inspect(reason, pretty: true)
 end

@@ -1,6 +1,7 @@
 defmodule QuizirWeb.UserForgotPasswordLive do
   use QuizirWeb, :live_view
 
+  require Logger
   alias Quizir.Accounts
 
   @impl true
@@ -11,9 +12,17 @@ defmodule QuizirWeb.UserForgotPasswordLive do
 
   @impl true
   def handle_event("send_instructions", %{"user" => %{"identifier" => identifier}}, socket) do
-    Accounts.deliver_user_reset_password_instructions(identifier, fn token ->
-      url(~p"/users/reset_password/#{token}")
-    end)
+    case Accounts.deliver_user_reset_password_instructions(identifier, fn token ->
+           url(~p"/users/reset_password/#{token}")
+         end) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "[UserForgotPasswordLive] Password reset failed for identifier '#{identifier}': #{inspect(reason)}"
+        )
+    end
 
     {:noreply, assign(socket, :sent, true)}
   end

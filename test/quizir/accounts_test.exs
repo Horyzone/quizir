@@ -292,5 +292,27 @@ defmodule Quizir.AccountsTest do
       assert email.from == {"Custom Quizir", "noreply@custom.com"}
       assert_email_sent(email)
     end
+
+    test "format_error/1 humanizes complex SMTP and TLS errors" do
+      alias Quizir.Accounts.UserNotifier
+
+      err_incompatible = {:options, :incompatible, [verify: :verify_peer, cacerts: :undefined]}
+      assert UserNotifier.format_error(err_incompatible) =~ "Incompatible SSL/TLS options"
+
+      err_network =
+        {:retries_exceeded, {:network_failure, ~c"smtp.example.com", {:error, err_incompatible}}}
+
+      assert UserNotifier.format_error(err_network) =~ "Network failure connecting to"
+      assert UserNotifier.format_error(err_network) =~ "Incompatible SSL/TLS options"
+
+      err_tls = {:tls_alert, {:handshake_failure, ~c"handshake failed"}}
+      assert UserNotifier.format_error(err_tls) =~ "TLS handshake failure"
+
+      err_cert = {:bad_cert, :max_path_length_reached}
+      assert UserNotifier.format_error(err_cert) =~ "max_path_length_reached"
+
+      err_perm = {:permanent_failure, "mail.example.com", "550 User unknown"}
+      assert UserNotifier.format_error(err_perm) =~ "Permanent SMTP server rejection"
+    end
   end
 end
