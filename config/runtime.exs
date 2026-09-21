@@ -1,5 +1,18 @@
 import Config
 
+# Load environment variables from .env files if present
+cond do
+  Code.ensure_loaded?(Quizir.Env) ->
+    Quizir.Env.load(config_env: config_env())
+
+  File.exists?(Path.expand("../lib/quizir/env.ex", __DIR__)) ->
+    Code.eval_file(Path.expand("../lib/quizir/env.ex", __DIR__))
+    Quizir.Env.load(config_env: config_env())
+
+  true ->
+    :ok
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
