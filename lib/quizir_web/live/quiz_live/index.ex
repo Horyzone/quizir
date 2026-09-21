@@ -139,69 +139,57 @@ defmodule QuizirWeb.QuizLive.Index do
 
             <div class="mt-4 pt-3 border-t border-base-200 flex items-center justify-between gap-2 flex-wrap">
               <div class="flex items-center gap-1.5">
-                <div class="join shadow-xs">
-                  <button
-                    type="button"
+                <div class="dropdown dropdown-top sm:dropdown-bottom dropdown-start">
+                  <div
+                    tabindex="0"
+                    role="button"
                     id={"start-game-btn-#{quiz.id}"}
-                    phx-click="start_game"
-                    phx-value-id={quiz.id}
-                    phx-value-visibility="public"
-                    class="btn btn-xs btn-primary join-item gap-1 font-bold"
-                    title="Lancer une partie publique"
+                    class="btn btn-xs btn-primary gap-1 font-bold shadow-xs cursor-pointer"
                   >
-                    <.icon name="hero-play" class="size-3.5" /> Lancer
-                  </button>
-                  <div class="dropdown dropdown-top sm:dropdown-bottom dropdown-start join-item">
-                    <div
-                      tabindex="0"
-                      role="button"
-                      id={"start-game-menu-btn-#{quiz.id}"}
-                      class="btn btn-xs btn-primary join-item px-1 border-l border-primary-content/20"
-                      aria-label="Options de lancement"
-                    >
-                      <.icon name="hero-chevron-down" class="size-3" />
-                    </div>
-                    <ul
-                      tabindex="0"
-                      class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-60 border border-base-200 mt-1 z-50 space-y-1"
-                    >
-                      <li class="menu-title px-2 py-1 text-[11px] text-base-content/50 font-bold">
-                        Mode de la session
-                      </li>
-                      <li>
-                        <button
-                          type="button"
-                          id={"launch-public-session-btn-#{quiz.id}"}
-                          phx-click="start_game"
-                          phx-value-id={quiz.id}
-                          phx-value-visibility="public"
-                          class="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-base-200"
-                        >
-                          <.icon name="hero-globe-alt" class="size-4 text-emerald-500 shrink-0" />
-                          <div>
-                            <div class="font-bold text-xs text-base-content">Partie Publique</div>
-                            <span class="text-[10px] text-base-content/60 block">Sans code PIN requis</span>
-                          </div>
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          type="button"
-                          id={"launch-private-session-btn-#{quiz.id}"}
-                          phx-click="start_game"
-                          phx-value-id={quiz.id}
-                          phx-value-visibility="private"
-                          class="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-base-200"
-                        >
-                          <.icon name="hero-lock-closed" class="size-4 text-amber-500 shrink-0" />
-                          <div>
-                            <div class="font-bold text-xs text-base-content">Partie Privée</div>
-                            <span class="text-[10px] text-base-content/60 block">Code PIN obligatoire</span>
-                          </div>
-                        </button>
-                      </li>
-                    </ul>
+                    <.icon name="hero-play" class="size-3.5" />
+                    <span>Lancer</span>
+                    <.icon name="hero-chevron-down" class="size-3 opacity-70" />
                   </div>
+                  <ul
+                    tabindex="0"
+                    class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-60 border border-base-200 mt-1 z-50 space-y-1"
+                  >
+                    <li class="menu-title px-2 py-1 text-[11px] text-base-content/50 font-bold">
+                      Mode de la session
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        id={"launch-public-session-btn-#{quiz.id}"}
+                        phx-click="start_game"
+                        phx-value-id={quiz.id}
+                        phx-value-visibility="public"
+                        class="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-base-200 w-full"
+                      >
+                        <.icon name="hero-globe-alt" class="size-4 text-emerald-500 shrink-0" />
+                        <div>
+                          <div class="font-bold text-xs text-base-content">Partie Publique</div>
+                          <span class="text-[10px] text-base-content/60 block">Sans code PIN requis</span>
+                        </div>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        id={"launch-private-session-btn-#{quiz.id}"}
+                        phx-click="start_game"
+                        phx-value-id={quiz.id}
+                        phx-value-visibility="private"
+                        class="flex items-center gap-2 p-2 rounded-xl text-left hover:bg-base-200 w-full"
+                      >
+                        <.icon name="hero-lock-closed" class="size-4 text-amber-500 shrink-0" />
+                        <div>
+                          <div class="font-bold text-xs text-base-content">Partie Privée</div>
+                          <span class="text-[10px] text-base-content/60 block">Code PIN obligatoire</span>
+                        </div>
+                      </button>
+                    </li>
+                  </ul>
                 </div>
 
                 <.link

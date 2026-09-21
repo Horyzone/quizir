@@ -140,10 +140,11 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
       {:ok, view, _html} = live(conn, ~p"/my-quizzes")
 
       assert has_element?(view, "#start-game-btn-#{quiz.id}")
+      assert has_element?(view, "#launch-public-session-btn-#{quiz.id}")
 
       {:ok, game_live, _html} =
         view
-        |> element("#start-game-btn-#{quiz.id}")
+        |> element("#launch-public-session-btn-#{quiz.id}")
         |> render_click()
         |> follow_redirect(conn)
 
