@@ -260,6 +260,7 @@ defmodule QuizirWeb.GameLive.PlayTest do
       GenServer.stop(host_view.pid)
 
       assert_receive {:DOWN, ^ref, :process, ^session_pid, :normal}
+      _ = :sys.get_state(Quizir.Games.SessionRegistry)
 
       refute Games.game_exists?(game.code)
       assert {:error, :not_found} = Games.get_game_state(game.code)
