@@ -27,3 +27,8 @@ npm-debug.log
 /quizir_data/
 # Ignore Visual Studio Code workspace settings.
 .vscode/
+
+# Environment files
+.env
+.env.*
+!.env.example

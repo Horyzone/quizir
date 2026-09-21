@@ -207,4 +207,73 @@ defmodule Quizir.AccountsTest do
       assert "ne correspond pas au mot de passe" in errors_on(changeset).password_confirmation
     end
   end
+
+  describe "deliver_user_reset_password_instructions/2" do
+    import Swoosh.TestAssertions
+
+    test "sends reset password email when user has email" do
+      user = user_fixture(%{email: "user@example.com"})
+
+      assert {:ok, email} =
+               Accounts.deliver_user_reset_password_instructions(user, fn token ->
+                 "https://example.com/reset/#{token}"
+               end)
+
+      assert email.to == [{user.username, "user@example.com"}]
+      assert email.subject =~ "Réinitialisation de votre mot de passe"
+      assert email.text_body =~ "https://example.com/reset/"
+      assert_email_sent(email)
+    end
+
+    test "does not send email when user has no email" do
+      user = user_fixture(%{email: nil})
+
+      assert {:ok, :no_email_sent} =
+               Accounts.deliver_user_reset_password_instructions(user, fn token ->
+                 "https://example.com/reset/#{token}"
+               end)
+    end
+
+    test "finds user by email identifier and delivers email" do
+      user = user_fixture(%{email: "findme@example.com"})
+
+      assert {:ok, email} =
+               Accounts.deliver_user_reset_password_instructions("findme@example.com", fn token ->
+                 "https://example.com/reset/#{token}"
+               end)
+
+      assert email.to == [{user.username, "findme@example.com"}]
+      assert_email_sent(email)
+    end
+
+    test "returns :no_email_sent when identifier does not exist" do
+      assert {:ok, :no_email_sent} =
+               Accounts.deliver_user_reset_password_instructions(
+                 "nonexistent@example.com",
+                 fn _ ->
+                   "url"
+                 end
+               )
+    end
+
+    test "uses configured from_name and from_email in email" do
+      user = user_fixture(%{email: "custom@example.com"})
+
+      Application.put_env(:quizir, :mail_from_name, "Custom Quizir")
+      Application.put_env(:quizir, :mail_from_address, "noreply@custom.com")
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :mail_from_name)
+        Application.delete_env(:quizir, :mail_from_address)
+      end)
+
+      assert {:ok, email} =
+               Accounts.deliver_user_reset_password_instructions(user, fn token ->
+                 "https://example.com/reset/#{token}"
+               end)
+
+      assert email.from == {"Custom Quizir", "noreply@custom.com"}
+      assert_email_sent(email)
+    end
+  end
 end

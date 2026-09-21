@@ -8,10 +8,13 @@ defmodule Quizir.Accounts.UserNotifier do
   """
   def deliver_reset_password_instructions(user, url) do
     if user.email do
+      from_name = Application.get_env(:quizir, :mail_from_name, "Quizir")
+      from_email = Application.get_env(:quizir, :mail_from_address, "contact@quizir.app")
+
       email =
         new()
         |> to({user.username, user.email})
-        |> from({"Quizir", "contact@quizir.app"})
+        |> from({from_name, from_email})
         |> subject("Réinitialisation de votre mot de passe Quizir")
         |> text_body("""
         Bonjour #{user.username},
