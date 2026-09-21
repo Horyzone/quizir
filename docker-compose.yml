@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quizir
+      POSTGRES_PASSWORD: quizir_password
+      POSTGRES_DB: quizir_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quizir -d quizir_prod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quizir:prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Montage du code source en volume pour le déploiement dynamique
+      - .:/app
+    environment:
+      MIX_ENV: prod
+      PORT: 4000
+      PHX_SERVER: "true"
+      PHX_HOST: localhost
+      DATABASE_URL: ecto://quizir:quizir_password@db:5432/quizir_prod
+      SECRET_KEY_BASE: ewnOAOv039z+/pdUcqB/ENNky3SfNX4OyawkJrjDornMFWYC4P7/Rx8gvpLqXwqi
+      # Passer à "true" pour recharger automatiquement les modifications de fichiers détectées sur le volume
+      AUTO_RELOAD: "false"
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "4000:4000"
+
+volumes:
+  postgres_data:
