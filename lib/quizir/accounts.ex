@@ -115,6 +115,7 @@ defmodule Quizir.Accounts do
   """
   def deliver_user_reset_password_instructions(identifier, reset_password_url_fun)
       when is_binary(identifier) do
+    identifier = String.trim(identifier)
     user = get_user_by_email(identifier) || get_user_by_username(identifier)
 
     if user && user.email do

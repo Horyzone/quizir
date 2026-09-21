@@ -222,6 +222,8 @@ defmodule Quizir.AccountsTest do
       assert email.to == [{user.username, "user@example.com"}]
       assert email.subject =~ "Réinitialisation de votre mot de passe"
       assert email.text_body =~ "https://example.com/reset/"
+      assert email.html_body =~ "https://example.com/reset/"
+      assert email.html_body =~ "Réinitialiser mon mot de passe"
       assert_email_sent(email)
     end
 
@@ -234,15 +236,30 @@ defmodule Quizir.AccountsTest do
                end)
     end
 
-    test "finds user by email identifier and delivers email" do
+    test "finds user by email identifier (with trimming) and delivers email" do
       user = user_fixture(%{email: "findme@example.com"})
 
       assert {:ok, email} =
-               Accounts.deliver_user_reset_password_instructions("findme@example.com", fn token ->
+               Accounts.deliver_user_reset_password_instructions(
+                 "  findme@example.com  ",
+                 fn token ->
+                   "https://example.com/reset/#{token}"
+                 end
+               )
+
+      assert email.to == [{user.username, "findme@example.com"}]
+      assert_email_sent(email)
+    end
+
+    test "finds user by username identifier and delivers email" do
+      user = user_fixture(%{username: "resetuser", email: "user_by_name@example.com"})
+
+      assert {:ok, email} =
+               Accounts.deliver_user_reset_password_instructions("resetuser", fn token ->
                  "https://example.com/reset/#{token}"
                end)
 
-      assert email.to == [{user.username, "findme@example.com"}]
+      assert email.to == [{user.username, user.email}]
       assert_email_sent(email)
     end
 

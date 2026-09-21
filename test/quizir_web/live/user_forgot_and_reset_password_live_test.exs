@@ -4,6 +4,8 @@ defmodule QuizirWeb.UserForgotAndResetPasswordLiveTest do
   import Quizir.AccountsFixtures
   alias Quizir.Accounts
 
+  import Swoosh.TestAssertions
+
   describe "Forgot password page" do
     test "renders forgot password form", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/users/reset_password")
@@ -13,8 +15,8 @@ defmodule QuizirWeb.UserForgotAndResetPasswordLiveTest do
       assert has_element?(view, "#forgot-password-submit-btn")
     end
 
-    test "submits forgot password and displays confirmation", %{conn: conn} do
-      user = user_fixture()
+    test "submits forgot password with email and sends reset email", %{conn: conn} do
+      user = user_fixture(%{email: "player@example.com"})
       {:ok, view, _html} = live(conn, ~p"/users/reset_password")
 
       html =
@@ -24,6 +26,63 @@ defmodule QuizirWeb.UserForgotAndResetPasswordLiveTest do
 
       assert html =~ "Vérifiez votre boîte de réception"
       assert has_element?(view, "#reset-instructions-sent")
+
+      assert_email_sent(fn email ->
+        assert email.to == [{user.username, user.email}]
+        assert email.subject =~ "Réinitialisation de votre mot de passe"
+        assert email.text_body =~ "/users/reset_password/"
+        assert email.html_body =~ "/users/reset_password/"
+        assert email.html_body =~ "Réinitialiser mon mot de passe"
+      end)
+    end
+
+    test "submits forgot password with username and sends reset email to user's address", %{
+      conn: conn
+    } do
+      user = user_fixture(%{username: "quizmaster", email: "master@example.com"})
+      {:ok, view, _html} = live(conn, ~p"/users/reset_password")
+
+      html =
+        view
+        |> form("#forgot_password_form", user: %{"identifier" => user.username})
+        |> render_submit()
+
+      assert html =~ "Vérifiez votre boîte de réception"
+      assert has_element?(view, "#reset-instructions-sent")
+
+      assert_email_sent(fn email ->
+        assert email.to == [{user.username, user.email}]
+        assert email.subject =~ "Réinitialisation de votre mot de passe"
+        assert email.text_body =~ "/users/reset_password/"
+        assert email.html_body =~ "/users/reset_password/"
+      end)
+    end
+
+    test "submitting unknown user displays confirmation but sends no email", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/reset_password")
+
+      html =
+        view
+        |> form("#forgot_password_form", user: %{"identifier" => "unknown_user@example.com"})
+        |> render_submit()
+
+      assert html =~ "Vérifiez votre boîte de réception"
+      assert has_element?(view, "#reset-instructions-sent")
+      refute_email_sent()
+    end
+
+    test "submitting user without email displays confirmation but sends no email", %{conn: conn} do
+      user = user_fixture(%{email: nil})
+      {:ok, view, _html} = live(conn, ~p"/users/reset_password")
+
+      html =
+        view
+        |> form("#forgot_password_form", user: %{"identifier" => user.username})
+        |> render_submit()
+
+      assert html =~ "Vérifiez votre boîte de réception"
+      assert has_element?(view, "#reset-instructions-sent")
+      refute_email_sent()
     end
   end
 
