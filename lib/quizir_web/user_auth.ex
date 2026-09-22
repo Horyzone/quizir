@@ -134,6 +134,51 @@ defmodule QuizirWeb.UserAuth do
     end
   end
 
+  @doc """
+  Plug that enforces redirection to the initial administrator account creation form
+  if no user accounts exist in the database.
+  """
+  def ensure_initial_user_setup(conn, _opts) do
+    if conn.assigns[:current_user] do
+      conn
+    else
+      if initial_setup_required?() and not setup_path?(conn) do
+        conn
+        |> put_flash(
+          :info,
+          "Veuillez créer le premier compte administrateur pour initialiser Quizir."
+        )
+        |> redirect(to: ~p"/users/register")
+        |> halt()
+      else
+        conn
+      end
+    end
+  end
+
+  @doc """
+  Returns true if the application requires initial administrator setup.
+  """
+  def initial_setup_required? do
+    force_initial_setup?() and not Accounts.any_users?()
+  end
+
+  defp force_initial_setup? do
+    Application.get_env(:quizir, :force_initial_admin_setup, true)
+  end
+
+  defp setup_path?(conn) do
+    path = conn.request_path
+    method = conn.method
+
+    cond do
+      path == ~p"/users/register" -> true
+      path == ~p"/users/log_in" and method == "POST" -> true
+      String.starts_with?(path, "/dev") -> true
+      true -> false
+    end
+  end
+
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)
@@ -149,22 +194,11 @@ defmodule QuizirWeb.UserAuth do
   ## LiveView Hooks
 
   def on_mount(:mount_current_user, _params, session, socket) do
-    user = get_user_from_session(session)
-    admin_user = get_admin_user_from_session(session)
-    QuizirWeb.UserTracker.track_socket(socket, user)
-
-    {:cont,
-     socket
-     |> Phoenix.Component.assign_new(:current_user, fn -> user end)
-     |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)
-     |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
-  end
-
-  def on_mount(:ensure_authenticated, _params, session, socket) do
-    user = get_user_from_session(session)
-    admin_user = get_admin_user_from_session(session)
-
-    if user do
+    if initial_setup_required?() do
+      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
+    else
+      user = get_user_from_session(session)
+      admin_user = get_admin_user_from_session(session)
       QuizirWeb.UserTracker.track_socket(socket, user)
 
       {:cont,
@@ -172,16 +206,35 @@ defmodule QuizirWeb.UserAuth do
        |> Phoenix.Component.assign_new(:current_user, fn -> user end)
        |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)
        |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(
-          :error,
-          "Vous devez être connecté pour accéder à cette page."
-        )
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+    end
+  end
 
-      {:halt, socket}
+  def on_mount(:ensure_authenticated, _params, session, socket) do
+    if initial_setup_required?() do
+      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
+    else
+      user = get_user_from_session(session)
+      admin_user = get_admin_user_from_session(session)
+
+      if user do
+        QuizirWeb.UserTracker.track_socket(socket, user)
+
+        {:cont,
+         socket
+         |> Phoenix.Component.assign_new(:current_user, fn -> user end)
+         |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)
+         |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
+      else
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Vous devez être connecté pour accéder à cette page."
+          )
+          |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+
+        {:halt, socket}
+      end
     end
   end
 
@@ -189,16 +242,21 @@ defmodule QuizirWeb.UserAuth do
     user = get_user_from_session(session)
     admin_user = get_admin_user_from_session(session)
 
-    if user do
-      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/quizzes")}
-    else
-      QuizirWeb.UserTracker.track_socket(socket, nil)
+    cond do
+      user ->
+        {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/quizzes")}
 
-      {:cont,
-       socket
-       |> Phoenix.Component.assign_new(:current_user, fn -> nil end)
-       |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(nil) end)
-       |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
+      initial_setup_required?() and socket.view != QuizirWeb.UserRegistrationLive ->
+        {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
+
+      true ->
+        QuizirWeb.UserTracker.track_socket(socket, nil)
+
+        {:cont,
+         socket
+         |> Phoenix.Component.assign_new(:current_user, fn -> nil end)
+         |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(nil) end)
+         |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
     end
   end
 

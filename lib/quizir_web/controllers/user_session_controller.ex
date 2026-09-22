@@ -8,8 +8,15 @@ defmodule QuizirWeb.UserSessionController do
     %{"username" => username, "password" => password} = user_params
 
     if user = Accounts.get_user_by_username_and_password(username, password) |> unwrap_user() do
+      welcome_msg =
+        if user.admin do
+          "Bienvenue #{user.username} ! Votre compte administrateur est prêt."
+        else
+          "Bienvenue #{user.username} !"
+        end
+
       conn
-      |> put_flash(:info, "Bienvenue #{user.username} !")
+      |> put_flash(:info, welcome_msg)
       |> UserAuth.log_in_user(user, user_params)
     else
       # In order to prevent user enumeration attacks, don't disclose whether the username exists.

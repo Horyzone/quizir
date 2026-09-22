@@ -61,17 +61,23 @@ defmodule QuizirWeb.AdminAuth do
   Plug for routes that require an authenticated admin.
   """
   def require_authenticated_admin(conn, _opts) do
-    if conn.assigns[:current_admin_user] do
+    if QuizirWeb.UserAuth.initial_setup_required?() do
       conn
-    else
-      conn
-      |> put_flash(
-        :error,
-        "Vous devez être connecté en tant qu'administrateur pour accéder à cette page."
-      )
-      |> maybe_store_admin_return_to()
-      |> redirect(to: ~p"/admin/log_in")
+      |> redirect(to: ~p"/users/register")
       |> halt()
+    else
+      if conn.assigns[:current_admin_user] do
+        conn
+      else
+        conn
+        |> put_flash(
+          :error,
+          "Vous devez être connecté en tant qu'administrateur pour accéder à cette page."
+        )
+        |> maybe_store_admin_return_to()
+        |> redirect(to: ~p"/admin/log_in")
+        |> halt()
+      end
     end
   end
 
@@ -110,50 +116,58 @@ defmodule QuizirWeb.AdminAuth do
   end
 
   def on_mount(:ensure_authenticated_admin, _params, session, socket) do
-    admin_user = get_admin_user_from_session(session)
-
-    if admin_user do
-      player_user = get_player_user_from_session(session)
-      QuizirWeb.UserTracker.track_socket(socket, player_user || admin_user)
-
-      {:cont,
-       socket
-       |> Phoenix.Component.assign_new(:is_admin, fn -> true end)
-       |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)
-       |> Phoenix.Component.assign_new(:current_user, fn -> player_user end)
-       |> Phoenix.Component.assign_new(:current_scope, fn ->
-         Quizir.Accounts.Scope.for_user(player_user)
-       end)}
+    if QuizirWeb.UserAuth.initial_setup_required?() do
+      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
     else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(
-          :error,
-          "Vous devez être connecté en tant qu'administrateur pour accéder à cette page."
-        )
-        |> Phoenix.LiveView.redirect(to: ~p"/admin/log_in")
+      admin_user = get_admin_user_from_session(session)
 
-      {:halt, socket}
+      if admin_user do
+        player_user = get_player_user_from_session(session)
+        QuizirWeb.UserTracker.track_socket(socket, player_user || admin_user)
+
+        {:cont,
+         socket
+         |> Phoenix.Component.assign_new(:is_admin, fn -> true end)
+         |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)
+         |> Phoenix.Component.assign_new(:current_user, fn -> player_user end)
+         |> Phoenix.Component.assign_new(:current_scope, fn ->
+           Quizir.Accounts.Scope.for_user(player_user)
+         end)}
+      else
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Vous devez être connecté en tant qu'administrateur pour accéder à cette page."
+          )
+          |> Phoenix.LiveView.redirect(to: ~p"/admin/log_in")
+
+        {:halt, socket}
+      end
     end
   end
 
   def on_mount(:redirect_if_admin_is_authenticated, _params, session, socket) do
-    admin_user = get_admin_user_from_session(session)
-
-    if admin_user do
-      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/admin")}
+    if QuizirWeb.UserAuth.initial_setup_required?() do
+      {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
     else
-      player_user = get_player_user_from_session(session)
-      QuizirWeb.UserTracker.track_socket(socket, player_user)
+      admin_user = get_admin_user_from_session(session)
 
-      {:cont,
-       socket
-       |> Phoenix.Component.assign_new(:is_admin, fn -> true end)
-       |> Phoenix.Component.assign_new(:current_admin_user, fn -> nil end)
-       |> Phoenix.Component.assign_new(:current_user, fn -> player_user end)
-       |> Phoenix.Component.assign_new(:current_scope, fn ->
-         Quizir.Accounts.Scope.for_user(player_user)
-       end)}
+      if admin_user do
+        {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/admin")}
+      else
+        player_user = get_player_user_from_session(session)
+        QuizirWeb.UserTracker.track_socket(socket, player_user)
+
+        {:cont,
+         socket
+         |> Phoenix.Component.assign_new(:is_admin, fn -> true end)
+         |> Phoenix.Component.assign_new(:current_admin_user, fn -> nil end)
+         |> Phoenix.Component.assign_new(:current_user, fn -> player_user end)
+         |> Phoenix.Component.assign_new(:current_scope, fn ->
+           Quizir.Accounts.Scope.for_user(player_user)
+         end)}
+      end
     end
   end
 

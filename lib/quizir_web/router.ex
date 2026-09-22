@@ -13,6 +13,7 @@ defmodule QuizirWeb.Router do
     plug :put_secure_browser_headers
     plug :fetch_current_user
     plug :fetch_current_admin_user
+    plug :ensure_initial_user_setup
   end
 
   pipeline :api do

@@ -80,6 +80,33 @@ defmodule Quizir.Accounts do
   end
 
   @doc """
+  Registers the initial administrator user when no accounts exist in the database.
+  Returns `{:ok, user}` with `admin: true`, or `{:error, :initial_admin_already_exists}` if accounts already exist.
+  """
+  def register_initial_admin(attrs) do
+    if not any_users?() do
+      result =
+        %User{admin: true}
+        |> User.registration_changeset(attrs)
+        |> Repo.insert()
+
+      with {:ok, user} <- result do
+        Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :users})
+        {:ok, user}
+      end
+    else
+      {:error, :initial_admin_already_exists}
+    end
+  end
+
+  @doc """
+  Checks if any user exists in the database.
+  """
+  def any_users? do
+    Repo.exists?(User)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user registration changes.
   """
   def change_user_registration(%User{} = user, attrs \\ %{}) do
