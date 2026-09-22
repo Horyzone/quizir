@@ -19,8 +19,8 @@ defmodule QuizirWeb.AdminLoginLive do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} is_admin={true}>
       <div class="max-w-md mx-auto py-12">
-        <div class="text-center mb-8">
-          <div class="inline-flex p-3.5 rounded-2xl bg-error/10 text-error ring-1 ring-error/20 mb-3 shadow-inner">
+        <div class="flex flex-col items-center text-center mb-8">
+          <div class="flex items-center justify-center p-3.5 rounded-2xl bg-error/10 text-error ring-1 ring-error/20 mb-3 shadow-inner">
             <.icon name="hero-shield-check" class="size-9" />
           </div>
           <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-error/10 text-error mb-2 border border-error/20">
