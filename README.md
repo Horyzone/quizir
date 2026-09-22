@@ -98,7 +98,30 @@ cd quizir
 cp .env.example .env
 ```
 
-Vous pouvez adapter les variables dans le fichier `.env` si nécessaire (notamment la configuration SMTP pour les emails de réinitialisation de mot de passe).
+#### Génération de la clé secrète (SECRET_KEY_BASE)
+La variable `SECRET_KEY_BASE` est indispensable en production pour signer et chiffrer les sessions et cookies de l'application. Elle doit comporter au moins 64 octets aléatoires.
+
+Plusieurs méthodes pour la générer facilement :
+
+- **Avec Elixir (si installé sur la machine) :**
+  ```bash
+  mix phx.gen.secret
+  ```
+- **Avec Docker (si Elixir n'est pas installé) :**
+  ```bash
+  docker run --rm elixir:1.20-slim elixir -e 'IO.puts(:crypto.strong_rand_bytes(64) |> Base.encode64())'
+  ```
+- **Avec OpenSSL (disponible nativement sur Linux / macOS) :**
+  ```bash
+  openssl rand -base64 64
+  ```
+
+Renseignez ensuite la chaîne obtenue dans votre fichier `.env` :
+```env
+SECRET_KEY_BASE=votre_cle_generee_ici
+```
+
+Vous pouvez également adapter les autres variables dans le fichier `.env` (domaine, configuration SMTP pour les emails, etc.).
 
 ### 2. Démarrer l'application
 Lancez l'ensemble des services (base de données et application Phoenix) en arrière-plan :
