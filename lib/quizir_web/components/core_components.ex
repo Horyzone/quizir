@@ -50,6 +50,12 @@ defmodule QuizirWeb.CoreComponents do
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
   attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
+
+  attr :auto_dismiss, :boolean,
+    default: true,
+    doc: "whether to auto dismiss the flash after 5 seconds"
+
+  attr :duration, :integer, default: 5000, doc: "duration in milliseconds before auto dismissing"
   attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
 
   slot :inner_block, doc: "the optional inner block that renders the flash message"
@@ -62,25 +68,37 @@ defmodule QuizirWeb.CoreComponents do
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
+      phx-hook={@auto_dismiss && "FlashAutoDismiss"}
+      data-auto-dismiss={if @auto_dismiss, do: @duration}
       role="alert"
-      class="toast toast-top toast-end z-50"
+      class="toast toast-top toast-center z-50 fixed top-5 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none w-full max-w-md px-4"
       {@rest}
     >
       <div class={[
-        "alert w-80 sm:w-96 max-w-80 sm:max-w-96 text-wrap",
-        @kind == :info && "alert-info",
-        @kind == :error && "alert-error"
+        "alert w-full max-w-md text-wrap shadow-2xl pointer-events-auto relative overflow-hidden rounded-2xl border transition-all duration-300 alert-toast-enter",
+        @kind == :info && "alert-info border-info/30",
+        @kind == :error && "alert-error border-error/30"
       ]}>
         <.icon :if={@kind == :info} name="hero-information-circle" class="size-5 shrink-0" />
         <.icon :if={@kind == :error} name="hero-exclamation-circle" class="size-5 shrink-0" />
-        <div>
-          <p :if={@title} class="font-semibold">{@title}</p>
-          <p>{msg}</p>
+        <div class="flex-1 pr-2">
+          <p :if={@title} class="font-bold text-sm">{@title}</p>
+          <p class="text-sm font-medium leading-snug">{msg}</p>
         </div>
-        <div class="flex-1" />
-        <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark" class="size-5 opacity-40 group-hover:opacity-70" />
+        <button
+          type="button"
+          class="btn btn-ghost btn-xs btn-circle opacity-60 hover:opacity-100 shrink-0"
+          aria-label={gettext("close")}
+        >
+          <.icon name="hero-x-mark" class="size-4" />
         </button>
+
+        <div
+          :if={@auto_dismiss}
+          class="absolute bottom-0 left-0 right-0 h-1 bg-black/10 dark:bg-white/10 overflow-hidden"
+        >
+          <div class="toast-progress-bar h-full bg-current opacity-40"></div>
+        </div>
       </div>
     </div>
     """
@@ -95,7 +113,7 @@ defmodule QuizirWeb.CoreComponents do
       <.button phx-click="go" variant="primary">Send!</.button>
       <.button navigate={~p"/"}>Home</.button>
   """
-  attr :rest, :global, include: ~w(href navigate patch method download name value disabled)
+  attr :rest, :global, include: ~w(href navigate patch method download name value disabled type)
   attr :class, :any
   attr :variant, :string, values: ~w(primary)
   slot :inner_block, required: true

@@ -1,5 +1,18 @@
 import Config
 
+# Load environment variables from .env files if present
+cond do
+  Code.ensure_loaded?(Quizir.Env) ->
+    Quizir.Env.load(config_env: config_env())
+
+  File.exists?(Path.expand("../lib/quizir/env.ex", __DIR__)) ->
+    Code.eval_file(Path.expand("../lib/quizir/env.ex", __DIR__))
+    Quizir.Env.load(config_env: config_env())
+
+  true ->
+    :ok
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -119,19 +132,114 @@ if config_env() == :prod do
 
   # ## Configuring the mailer
   #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :quizir, Quizir.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
+  # In production, configure SMTP via environment variables (SMTP_HOST, SMTP_PORT, etc.).
+  # Swoosh is configured below if SMTP_HOST is present.
+end
+
+# ## SMTP Server & Mail Configuration
+# Configures Swoosh with Swoosh.Adapters.SMTP whenever SMTP_HOST (or SMTP_SERVER / SMTP_RELAY) is set.
+# Preserves the test adapter in :test environment.
+if config_env() != :test do
+  # Mail sender identity (for password reset, notifications, etc.)
+  config :quizir,
+    mail_from_name:
+      System.get_env("SMTP_FROM_NAME") || System.get_env("MAIL_FROM_NAME") || "Quizir",
+    mail_from_address:
+      System.get_env("SMTP_FROM_EMAIL") || System.get_env("MAIL_FROM_ADDRESS") ||
+        "contact@quizir.app"
+
+  smtp_host =
+    System.get_env("SMTP_HOST") ||
+      System.get_env("SMTP_SERVER") ||
+      System.get_env("SMTP_RELAY")
+
+  if smtp_host do
+    port_str = System.get_env("SMTP_PORT") || "587"
+    smtp_port = String.to_integer(port_str)
+    smtp_username = System.get_env("SMTP_USERNAME") || System.get_env("SMTP_USER")
+    smtp_password = System.get_env("SMTP_PASSWORD") || System.get_env("SMTP_PASS")
+
+    # SSL is true on port 465 (SMTPS), false on port 587 (STARTTLS) / port 25
+    default_ssl = smtp_port == 465
+
+    smtp_ssl =
+      case System.get_env("SMTP_SSL") do
+        val when val in ~w(true 1 TRUE) -> true
+        val when val in ~w(false 0 FALSE) -> false
+        _ -> default_ssl
+      end
+
+    smtp_tls =
+      case System.get_env("SMTP_TLS") do
+        "always" -> :always
+        "never" -> :never
+        _ -> :if_available
+      end
+
+    smtp_auth =
+      case System.get_env("SMTP_AUTH") do
+        "always" -> :always
+        "never" -> :never
+        _ -> if(smtp_username, do: :always, else: :if_available)
+      end
+
+    smtp_retries =
+      case System.get_env("SMTP_RETRIES") do
+        nil -> 1
+        retries -> String.to_integer(retries)
+      end
+
+    ssl_verify =
+      case System.get_env("SMTP_TLS_VERIFY") do
+        val when val in ~w(none false 0 FALSE) -> :verify_none
+        _ -> :verify_peer
+      end
+
+    cacerts =
+      try do
+        :public_key.cacerts_get()
+      rescue
+        _ -> []
+      end
+
+    tls_opts = [
+      verify: ssl_verify,
+      depth: 10,
+      server_name_indication: String.to_charlist(smtp_host)
+    ]
+
+    tls_opts =
+      if ssl_verify == :verify_peer and is_list(cacerts) and cacerts != [] do
+        tls_opts ++
+          [
+            cacerts: cacerts,
+            customize_hostname_check: [
+              match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+            ]
+          ]
+      else
+        tls_opts
+      end
+
+    mailer_config = [
+      adapter: Swoosh.Adapters.SMTP,
+      relay: smtp_host,
+      port: smtp_port,
+      ssl: smtp_ssl,
+      tls: smtp_tls,
+      auth: smtp_auth,
+      retries: smtp_retries,
+      sockopts: tls_opts,
+      tls_options: tls_opts
+    ]
+
+    mailer_config =
+      if smtp_username do
+        mailer_config ++ [username: smtp_username, password: smtp_password || ""]
+      else
+        mailer_config
+      end
+
+    config :quizir, Quizir.Mailer, mailer_config
+  end
 end

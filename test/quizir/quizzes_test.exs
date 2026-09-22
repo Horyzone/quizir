@@ -1,0 +1,303 @@
+defmodule Quizir.QuizzesTest do
+  use Quizir.DataCase
+
+  alias Quizir.Quizzes
+
+  describe "quizzes" do
+    alias Quizir.Quizzes.Quiz
+
+    import Quizir.QuizzesFixtures
+
+    @invalid_attrs %{description: nil, title: nil, visibility: nil}
+
+    test "list_quizzes/0 returns all quizzes" do
+      quiz = quiz_fixture()
+      assert Quizzes.list_quizzes() == [quiz]
+    end
+
+    test "list_public_quizzes/0 returns only public quizzes" do
+      public_quiz = quiz_fixture(%{visibility: "public"})
+      _private_quiz = quiz_fixture(%{visibility: "private"})
+
+      assert Quizzes.list_public_quizzes() == [public_quiz]
+    end
+
+    test "get_quiz!/1 returns the quiz with given id" do
+      quiz = quiz_fixture()
+      assert Quizzes.get_quiz!(quiz.id) == quiz
+    end
+
+    test "create_quiz/1 with valid data creates a quiz" do
+      valid_attrs = %{
+        description: "some description",
+        title: "some title",
+        visibility: "public"
+      }
+
+      assert {:ok, %Quiz{} = quiz} = Quizzes.create_quiz(valid_attrs)
+      assert quiz.description == "some description"
+      assert quiz.title == "some title"
+      assert quiz.visibility == "public"
+    end
+
+    test "create_quiz/1 with invalid data returns error changeset" do
+      assert {:error, %Ecto.Changeset{}} = Quizzes.create_quiz(@invalid_attrs)
+    end
+
+    test "update_quiz/2 with valid data updates the quiz" do
+      quiz = quiz_fixture()
+
+      update_attrs = %{
+        description: "some updated description",
+        title: "some updated title",
+        visibility: "private"
+      }
+
+      assert {:ok, %Quiz{} = quiz} = Quizzes.update_quiz(quiz, update_attrs)
+      assert quiz.description == "some updated description"
+      assert quiz.title == "some updated title"
+      assert quiz.visibility == "private"
+    end
+
+    test "update_quiz/2 with invalid data returns error changeset" do
+      quiz = quiz_fixture()
+      assert {:error, %Ecto.Changeset{}} = Quizzes.update_quiz(quiz, @invalid_attrs)
+      assert quiz == Quizzes.get_quiz!(quiz.id)
+    end
+
+    test "delete_quiz/1 deletes the quiz" do
+      quiz = quiz_fixture()
+      assert {:ok, %Quiz{}} = Quizzes.delete_quiz(quiz)
+      assert_raise Ecto.NoResultsError, fn -> Quizzes.get_quiz!(quiz.id) end
+    end
+
+    test "delete_quiz/1 cascades deletion to associated questions and answer options" do
+      {:ok, quiz} =
+        Quizzes.create_quiz(%{
+          title: "Quiz avec questions",
+          visibility: "public",
+          questions: [
+            %{
+              body: "Q1",
+              order: 1,
+              time_limit_seconds: 20,
+              answer_options: [
+                %{body: "A1", is_correct: true},
+                %{body: "A2", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      assert {:ok, %Quiz{}} = Quizzes.delete_quiz(quiz)
+      assert_raise Ecto.NoResultsError, fn -> Quizzes.get_quiz!(quiz.id) end
+      assert Quizzes.list_questions() == []
+      assert Quizzes.list_answer_options() == []
+    end
+
+    test "change_quiz/1 returns a quiz changeset" do
+      quiz = quiz_fixture()
+      assert %Ecto.Changeset{} = Quizzes.change_quiz(quiz)
+    end
+
+    test "list_user_quizzes/2 filters by user and visibility" do
+      user1 = Quizir.AccountsFixtures.user_fixture()
+      user2 = Quizir.AccountsFixtures.user_fixture()
+
+      quiz_pub1 = quiz_fixture(%{user: user1, title: "Public User1", visibility: "public"})
+      quiz_priv1 = quiz_fixture(%{user: user1, title: "Private User1", visibility: "private"})
+      _quiz_pub2 = quiz_fixture(%{user: user2, title: "Public User2", visibility: "public"})
+
+      # Tous les quiz de user1
+      all_user1 = Quizzes.list_user_quizzes(user1, "all")
+      all_ids = Enum.map(all_user1, & &1.id)
+      assert quiz_pub1.id in all_ids
+      assert quiz_priv1.id in all_ids
+      assert length(all_user1) == 2
+
+      # Uniquement les quiz publics de user1
+      pub_user1 = Quizzes.list_user_quizzes(user1, "public")
+      assert Enum.map(pub_user1, & &1.id) == [quiz_pub1.id]
+
+      # Uniquement les quiz privés de user1
+      priv_user1 = Quizzes.list_user_quizzes(user1, "private")
+      assert Enum.map(priv_user1, & &1.id) == [quiz_priv1.id]
+    end
+
+    test "count_user_quizzes_by_visibility/1 returns accurate counts" do
+      user = Quizir.AccountsFixtures.user_fixture()
+
+      assert Quizzes.count_user_quizzes_by_visibility(user) == %{total: 0, public: 0, private: 0}
+
+      _q1 = quiz_fixture(%{user: user, visibility: "public"})
+      _q2 = quiz_fixture(%{user: user, visibility: "public"})
+      _q3 = quiz_fixture(%{user: user, visibility: "private"})
+
+      assert Quizzes.count_user_quizzes_by_visibility(user) == %{total: 3, public: 2, private: 1}
+    end
+  end
+
+  describe "questions" do
+    alias Quizir.Quizzes.Question
+
+    import Quizir.QuizzesFixtures
+
+    @invalid_attrs %{body: nil, order: nil, time_limit_seconds: nil}
+
+    test "list_questions/0 returns all questions" do
+      question = question_fixture()
+      assert Quizzes.list_questions() == [question]
+    end
+
+    test "get_question!/1 returns the question with given id" do
+      question = question_fixture()
+      assert Quizzes.get_question!(question.id) == question
+    end
+
+    test "create_question/1 with valid data creates a question" do
+      valid_attrs = %{body: "some body", order: 42, time_limit_seconds: 42}
+
+      assert {:ok, %Question{} = question} = Quizzes.create_question(valid_attrs)
+      assert question.body == "some body"
+      assert question.order == 42
+      assert question.time_limit_seconds == 42
+    end
+
+    test "create_question/1 with invalid data returns error changeset" do
+      assert {:error, %Ecto.Changeset{}} = Quizzes.create_question(@invalid_attrs)
+    end
+
+    test "update_question/2 with valid data updates the question" do
+      question = question_fixture()
+      update_attrs = %{body: "some updated body", order: 43, time_limit_seconds: 43}
+
+      assert {:ok, %Question{} = question} = Quizzes.update_question(question, update_attrs)
+      assert question.body == "some updated body"
+      assert question.order == 43
+      assert question.time_limit_seconds == 43
+    end
+
+    test "update_question/2 with invalid data returns error changeset" do
+      question = question_fixture()
+      assert {:error, %Ecto.Changeset{}} = Quizzes.update_question(question, @invalid_attrs)
+      assert question == Quizzes.get_question!(question.id)
+    end
+
+    test "delete_question/1 deletes the question" do
+      question = question_fixture()
+      assert {:ok, %Question{}} = Quizzes.delete_question(question)
+      assert_raise Ecto.NoResultsError, fn -> Quizzes.get_question!(question.id) end
+    end
+
+    test "change_question/1 returns a question changeset" do
+      question = question_fixture()
+      assert %Ecto.Changeset{} = Quizzes.change_question(question)
+    end
+  end
+
+  describe "answer_options" do
+    alias Quizir.Quizzes.AnswerOption
+
+    import Quizir.QuizzesFixtures
+
+    @invalid_attrs %{body: nil, is_correct: nil}
+
+    test "list_answer_options/0 returns all answer_options" do
+      answer_option = answer_option_fixture()
+      assert Quizzes.list_answer_options() == [answer_option]
+    end
+
+    test "get_answer_option!/1 returns the answer_option with given id" do
+      answer_option = answer_option_fixture()
+      assert Quizzes.get_answer_option!(answer_option.id) == answer_option
+    end
+
+    test "create_answer_option/1 with valid data creates a answer_option" do
+      valid_attrs = %{body: "some body", is_correct: true}
+
+      assert {:ok, %AnswerOption{} = answer_option} = Quizzes.create_answer_option(valid_attrs)
+      assert answer_option.body == "some body"
+      assert answer_option.is_correct == true
+    end
+
+    test "create_answer_option/1 with invalid data returns error changeset" do
+      assert {:error, %Ecto.Changeset{}} = Quizzes.create_answer_option(@invalid_attrs)
+    end
+
+    test "update_answer_option/2 with valid data updates the answer_option" do
+      answer_option = answer_option_fixture()
+      update_attrs = %{body: "some updated body", is_correct: false}
+
+      assert {:ok, %AnswerOption{} = answer_option} =
+               Quizzes.update_answer_option(answer_option, update_attrs)
+
+      assert answer_option.body == "some updated body"
+      assert answer_option.is_correct == false
+    end
+
+    test "update_answer_option/2 with invalid data returns error changeset" do
+      answer_option = answer_option_fixture()
+
+      assert {:error, %Ecto.Changeset{}} =
+               Quizzes.update_answer_option(answer_option, @invalid_attrs)
+
+      assert answer_option == Quizzes.get_answer_option!(answer_option.id)
+    end
+
+    test "delete_answer_option/1 deletes the answer_option" do
+      answer_option = answer_option_fixture()
+      assert {:ok, %AnswerOption{}} = Quizzes.delete_answer_option(answer_option)
+      assert_raise Ecto.NoResultsError, fn -> Quizzes.get_answer_option!(answer_option.id) end
+    end
+
+    test "change_answer_option/1 returns a answer_option changeset" do
+      answer_option = answer_option_fixture()
+      assert %Ecto.Changeset{} = Quizzes.change_answer_option(answer_option)
+    end
+  end
+
+  describe "admin quizzes context" do
+    import Quizir.QuizzesFixtures
+    import Quizir.AccountsFixtures
+
+    test "count_quizzes/0, count_public_quizzes/0, count_private_quizzes/0" do
+      _pub1 = quiz_fixture(%{visibility: "public"})
+      _pub2 = quiz_fixture(%{visibility: "public"})
+      _priv1 = quiz_fixture(%{visibility: "private"})
+
+      assert Quizzes.count_quizzes() >= 3
+      assert Quizzes.count_public_quizzes() >= 2
+      assert Quizzes.count_private_quizzes() >= 1
+    end
+
+    test "count_questions/0, count_answer_options/0, avg_questions_per_quiz/0" do
+      initial_questions = Quizzes.count_questions()
+      initial_answers = Quizzes.count_answer_options()
+
+      _question = question_fixture()
+      _answer = answer_option_fixture()
+
+      assert Quizzes.count_questions() >= initial_questions + 1
+      assert Quizzes.count_answer_options() >= initial_answers + 1
+      assert is_float(Quizzes.avg_questions_per_quiz())
+    end
+
+    test "list_quizzes_for_admin/1 with and without search" do
+      user = user_fixture(%{username: "quizcreator"})
+      q1 = quiz_fixture(%{title: "Cinéma Français", description: "Le 7eme art", user: user})
+      q2 = quiz_fixture(%{title: "Jeux Vidéo Rétro", description: "Pixel art et 8-bit"})
+
+      admin_list = Quizzes.list_quizzes_for_admin()
+      assert Enum.any?(admin_list, &(&1.id == q1.id))
+      assert Enum.any?(admin_list, &(&1.id == q2.id))
+
+      search_res = Quizzes.list_quizzes_for_admin(search: "Cinéma")
+      assert Enum.any?(search_res, &(&1.id == q1.id))
+      refute Enum.any?(search_res, &(&1.id == q2.id))
+
+      search_desc = Quizzes.list_quizzes_for_admin(search: "Pixel")
+      assert Enum.any?(search_desc, &(&1.id == q2.id))
+      refute Enum.any?(search_desc, &(&1.id == q1.id))
+    end
+  end
+end

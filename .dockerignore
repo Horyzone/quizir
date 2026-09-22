@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+_build
+deps
+priv/static
+assets/node_modules
+*.log

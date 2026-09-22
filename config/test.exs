@@ -6,9 +6,9 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :quizir, Quizir.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
+  username: System.get_env("POSTGRES_USER") || "quizir",
+  password: System.get_env("POSTGRES_PASSWORD") || "quizir",
+  hostname: System.get_env("POSTGRES_HOST") || "127.0.0.1",
   database: "quizir_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
@@ -22,6 +22,9 @@ config :quizir, QuizirWeb.Endpoint,
 
 # In test we don't send emails
 config :quizir, Quizir.Mailer, adapter: Swoosh.Adapters.Test
+
+# Fast password hashing in tests
+config :pbkdf2_elixir, :rounds, 1
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
@@ -39,3 +42,6 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Disable automatic redirect in test suite to allow isolated sandbox tests
+config :quizir, :force_initial_admin_setup, false

@@ -27,6 +27,7 @@ defmodule QuizirWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
+      import Phoenix.LiveViewTest
       import QuizirWeb.ConnCase
     end
   end
@@ -34,5 +35,51 @@ defmodule QuizirWeb.ConnCase do
   setup tags do
     Quizir.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  @doc """
+  Setup helper that registers and logs in users.
+
+      setup :register_and_log_in_user
+
+  It stores an updated connection and a registered user in the test context.
+  """
+  def register_and_log_in_user(%{conn: conn}) do
+    user = Quizir.AccountsFixtures.user_fixture()
+    %{conn: log_in_user(conn, user), user: user}
+  end
+
+  @doc """
+  Logs the given `user` into the `conn`.
+  """
+  def log_in_user(conn, user) do
+    token = Quizir.Accounts.generate_user_session_token(user)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+  end
+
+  @doc """
+  Setup helper that registers and logs in admin users.
+
+      setup :register_and_log_in_admin
+
+  It stores an updated connection and an admin user in the test context.
+  """
+  def register_and_log_in_admin(%{conn: conn}) do
+    admin = Quizir.AccountsFixtures.admin_user_fixture()
+    %{conn: log_in_admin(conn, admin), admin: admin}
+  end
+
+  @doc """
+  Logs the given `admin` user into the admin session of the `conn`.
+  """
+  def log_in_admin(conn, admin) do
+    token = Quizir.Accounts.generate_admin_session_token(admin)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:admin_user_token, token)
   end
 end

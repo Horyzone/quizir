@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -e
+
+echo "============================================================"
+echo "  Quizir - Dynamic Production Deployment (Hot Reload)       "
+echo "============================================================"
+
+# Navigate to project directory
+APP_DIR="${APP_DIR:-/app}"
+if [ -d "$APP_DIR" ]; then
+  cd "$APP_DIR"
+fi
+
+export MIX_ENV="${MIX_ENV:-prod}"
+
+echo "==> [1/4] Checking dependencies..."
+mix deps.get --only "$MIX_ENV"
+
+echo "==> [2/4] Compiling updated Elixir code..."
+mix compile
+
+echo "==> [3/4] Running database migrations..."
+mix ecto.migrate
+
+echo "==> [4/4] Building and digesting static assets (Tailwind & JS)..."
+mix assets.deploy
+
+echo "==> [5/5] Hot-reloading modified modules into running Phoenix instance..."
+elixir --sname "quizir_deploy_$$" --cookie "${NODE_COOKIE:-quizir_node_cookie}" -e '
+  hostname = elem(:inet.gethostname(), 1)
+  target = :"quizir@#{hostname}"
+  
+  if Node.connect(target) do
+    case :rpc.call(target, Quizir.Release, :reload_modules, []) do
+      {:ok, []} ->
+        IO.puts("==> [OK] Code is up to date. Static manifest refreshed.")
+      {:ok, modules} ->
+        IO.puts("==> [SUCCESS] Hot-reloaded #{length(modules)} module(s) into memory with 0s downtime:")
+        Enum.each(modules, fn m -> IO.puts("      * #{inspect(m)}") end)
+      {:error, reason} ->
+        IO.puts("==> [ERROR] Hot reload failed: #{inspect(reason)}")
+        System.halt(1)
+      other ->
+        IO.puts("==> [INFO] Node response: #{inspect(other)}")
+    end
+  else
+    IO.puts("==> [WARNING] Could not connect to running node #{target}. If the server is not started yet, changes will take effect on next start.")
+  end
+'
+
+echo "============================================================"
+echo "  Hot deployment completed successfully!                    "
+echo "============================================================"
