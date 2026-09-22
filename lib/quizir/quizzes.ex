@@ -252,9 +252,15 @@ defmodule Quizir.Quizzes do
   def create_quiz(attrs, user \\ nil) do
     quiz = if user, do: %Quiz{user_id: user.id}, else: %Quiz{}
 
-    quiz
-    |> Quiz.changeset(attrs)
-    |> Repo.insert()
+    result =
+      quiz
+      |> Quiz.changeset(attrs)
+      |> Repo.insert()
+
+    with {:ok, created_quiz} <- result do
+      Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :quizzes})
+      {:ok, created_quiz}
+    end
   end
 
   @doc """
@@ -270,9 +276,15 @@ defmodule Quizir.Quizzes do
 
   """
   def update_quiz(%Quiz{} = quiz, attrs) do
-    quiz
-    |> Quiz.changeset(attrs)
-    |> Repo.update()
+    result =
+      quiz
+      |> Quiz.changeset(attrs)
+      |> Repo.update()
+
+    with {:ok, updated_quiz} <- result do
+      Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :quizzes})
+      {:ok, updated_quiz}
+    end
   end
 
   @doc """
@@ -288,7 +300,12 @@ defmodule Quizir.Quizzes do
 
   """
   def delete_quiz(%Quiz{} = quiz) do
-    Repo.delete(quiz)
+    result = Repo.delete(quiz)
+
+    with {:ok, deleted_quiz} <- result do
+      Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :quizzes})
+      {:ok, deleted_quiz}
+    end
   end
 
   @doc """

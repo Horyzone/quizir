@@ -68,9 +68,15 @@ defmodule Quizir.Accounts do
   Registers a new user.
   """
   def register_user(attrs) do
-    %User{}
-    |> User.registration_changeset(attrs)
-    |> Repo.insert()
+    result =
+      %User{}
+      |> User.registration_changeset(attrs)
+      |> Repo.insert()
+
+    with {:ok, user} <- result do
+      Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :users})
+      {:ok, user}
+    end
   end
 
   @doc """
@@ -332,6 +338,12 @@ defmodule Quizir.Accounts do
             Repo.delete_all(UserToken.by_user_and_contexts_query(user, ["admin_session"]))
           end
 
+          Phoenix.PubSub.broadcast(
+            Quizir.PubSub,
+            "admin:dashboard",
+            {:admin_content_event, :users}
+          )
+
           result
 
         error ->
@@ -348,7 +360,12 @@ defmodule Quizir.Accounts do
     if user.id == current_admin.id do
       {:error, :cannot_delete_self}
     else
-      Repo.delete(user)
+      result = Repo.delete(user)
+
+      with {:ok, deleted} <- result do
+        Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :users})
+        {:ok, deleted}
+      end
     end
   end
 end

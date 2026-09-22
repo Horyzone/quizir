@@ -26,6 +26,12 @@ defmodule QuizirWeb.Admin.DashboardLive do
       |> reload_games()
       |> reload_completed_games()
 
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Quizir.PubSub, "site:presence")
+      Phoenix.PubSub.subscribe(Quizir.PubSub, "admin:dashboard")
+      schedule_stats_tick()
+    end
+
     {:ok, socket}
   end
 
@@ -254,6 +260,59 @@ defmodule QuizirWeb.Admin.DashboardLive do
     assign(socket, :completed_games, completed_games)
   end
 
+  defp schedule_stats_tick do
+    Process.send_after(self(), :tick_stats, 4000)
+  end
+
+  # --- Real-Time PubSub Handlers ---
+
+  @impl true
+  def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
+    {:noreply, reload_stats(socket)}
+  end
+
+  @impl true
+  def handle_info({:presence_diff, _diff}, socket) do
+    {:noreply, reload_stats(socket)}
+  end
+
+  @impl true
+  def handle_info({:admin_game_event, _action, _payload}, socket) do
+    {:noreply,
+     socket
+     |> reload_stats()
+     |> reload_games()
+     |> reload_completed_games()}
+  end
+
+  @impl true
+  def handle_info({:admin_content_event, :quizzes}, socket) do
+    {:noreply,
+     socket
+     |> reload_stats()
+     |> reload_quizzes()}
+  end
+
+  @impl true
+  def handle_info({:admin_content_event, :users}, socket) do
+    {:noreply,
+     socket
+     |> reload_stats()
+     |> reload_users()}
+  end
+
+  @impl true
+  def handle_info(:tick_stats, socket) do
+    if connected?(socket) do
+      schedule_stats_tick()
+    end
+
+    {:noreply,
+     socket
+     |> reload_stats()
+     |> reload_games()}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -278,6 +337,17 @@ defmodule QuizirWeb.Admin.DashboardLive do
                 </h1>
                 <span class="badge badge-error badge-sm font-bold tracking-wider uppercase text-[10px]">
                   Admin
+                </span>
+                <span
+                  id="admin-live-badge"
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shadow-2xs"
+                  title="Données synchronisées en temps réel via Phoenix LiveView"
+                >
+                  <span class="relative flex size-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
+                  </span>
+                  <span>Temps réel</span>
                 </span>
               </div>
               <p class="text-sm text-zinc-500 mt-0.5">

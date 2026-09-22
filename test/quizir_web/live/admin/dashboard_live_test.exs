@@ -103,6 +103,41 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
 
       assert has_element?(view, "#admin-stats-view")
     end
+
+    test "real-time updates: dashboard updates automatically on PubSub broadcast", %{
+      conn: conn,
+      admin: admin,
+      quiz: quiz
+    } do
+      conn = log_in_admin(conn, admin)
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      assert has_element?(view, "#admin-live-badge")
+
+      # Create a new completed game and broadcast admin_game_event
+      {:ok, _record} =
+        Games.create_game_record(%{
+          code: "REALTIME01",
+          quiz_id: quiz.id,
+          quiz_title: "Quiz Realtime",
+          visibility: "public",
+          players_count: 8,
+          winner_name: "LiveWinner",
+          winner_score: 999,
+          status: "completed",
+          finished_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        })
+
+      Phoenix.PubSub.broadcast(
+        Quizir.PubSub,
+        "admin:dashboard",
+        {:admin_game_event, :game_finished, "REALTIME01"}
+      )
+
+      # Without clicking refresh, LiveView receives broadcast and renders new row
+      assert render(view) =~ "REALTIME01"
+      assert render(view) =~ "LiveWinner"
+    end
   end
 
   describe "Tab Switching" do

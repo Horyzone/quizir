@@ -39,6 +39,12 @@ defmodule Quizir.Games do
 
     case DynamicSupervisor.start_child(SessionSupervisor, child_spec) do
       {:ok, pid} ->
+        Phoenix.PubSub.broadcast(
+          Quizir.PubSub,
+          "admin:dashboard",
+          {:admin_game_event, :game_created, code}
+        )
+
         {:ok, %{code: code, host_token: host_token, pid: pid, visibility: visibility}}
 
       {:error, reason} ->
@@ -165,7 +171,15 @@ defmodule Quizir.Games do
   def terminate_game_by_admin(code) when is_binary(code) do
     case Registry.lookup(SessionRegistry, code) do
       [{pid, _}] ->
-        DynamicSupervisor.terminate_child(SessionSupervisor, pid)
+        result = DynamicSupervisor.terminate_child(SessionSupervisor, pid)
+
+        Phoenix.PubSub.broadcast(
+          Quizir.PubSub,
+          "admin:dashboard",
+          {:admin_game_event, :game_terminated, code}
+        )
+
+        result
 
       [] ->
         {:error, :not_found}

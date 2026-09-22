@@ -42,6 +42,8 @@ defmodule QuizirWeb.GameLive.Play do
             true -> "Hôte"
           end
 
+        bg_music_track = Enum.random([1, 2, 3])
+
         {:ok,
          socket
          |> assign(:code, code)
@@ -63,6 +65,7 @@ defmodule QuizirWeb.GameLive.Play do
          |> assign(:leaderboard, Session.build_leaderboard(game_state.players))
          |> assign(:join_form, join_form)
          |> assign(:join_error, nil)
+         |> assign(:bg_music_track, bg_music_track)
          |> assign(:page_title, "Partie ##{code}")}
 
       {:error, :not_found} ->
@@ -124,7 +127,8 @@ defmodule QuizirWeb.GameLive.Play do
      |> assign(:selected_option_id, nil)
      |> assign(:last_answer_result, nil)
      |> assign(:reveal_results, nil)
-     |> assign(:answers, %{})}
+     |> assign(:answers, %{})
+     |> push_event("play_sound", %{type: "game_start"})}
   end
 
   @impl true
@@ -147,6 +151,13 @@ defmodule QuizirWeb.GameLive.Play do
     current_player = if player_id, do: Map.get(state.players, player_id), else: nil
     player_answer = if player_id, do: Map.get(results.answers, player_id), else: nil
 
+    is_correct =
+      if player_answer do
+        player_answer.is_correct
+      else
+        nil
+      end
+
     {:noreply,
      socket
      |> assign(:status, :reveal)
@@ -155,7 +166,8 @@ defmodule QuizirWeb.GameLive.Play do
      |> assign(:players, state.players)
      |> assign(:current_player, current_player)
      |> assign(:last_answer_result, player_answer)
-     |> assign(:leaderboard, results.leaderboard)}
+     |> assign(:leaderboard, results.leaderboard)
+     |> push_event("play_sound", %{type: "reveal", is_correct: is_correct})}
   end
 
   @impl true
@@ -184,7 +196,8 @@ defmodule QuizirWeb.GameLive.Play do
     {:noreply,
      socket
      |> assign(:status, :finished)
-     |> assign(:leaderboard, leaderboard)}
+     |> assign(:leaderboard, leaderboard)
+     |> push_event("play_sound", %{type: "game_finished"})}
   end
 
   # --- User Event Handlers ---
@@ -277,7 +290,8 @@ defmodule QuizirWeb.GameLive.Play do
           {:noreply,
            socket
            |> assign(:selected_option_id, option_id)
-           |> assign(:last_answer_result, answer_info)}
+           |> assign(:last_answer_result, answer_info)
+           |> push_event("play_sound", %{type: "click"})}
 
         {:error, _} ->
           {:noreply, socket}
@@ -318,9 +332,18 @@ defmodule QuizirWeb.GameLive.Play do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
+      <!-- Audio Hook & Procedural Audio Engine -->
+      <div
+        id="game-audio-controller"
+        phx-hook="GameAudio"
+        data-music-track={@bg_music_track}
+        phx-update="ignore"
+      >
+      </div>
+
       <div class="max-w-3xl mx-auto py-6">
         <!-- Top status bar -->
-        <div class="flex items-center justify-between p-4 mb-6 rounded-2xl bg-base-100 border border-base-300 shadow-sm">
+        <div class="flex items-center justify-between p-4 mb-6 rounded-2xl bg-base-100 border border-base-300 shadow-sm gap-3 flex-wrap">
           <div class="flex items-center gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-zinc-400">Salon</span>
             <span
@@ -329,12 +352,45 @@ defmodule QuizirWeb.GameLive.Play do
             >
               {@code}
             </span>
-            <span class="text-sm font-semibold truncate max-w-[200px] sm:max-w-xs text-base-content/80">
+            <span class="text-sm font-semibold truncate max-w-[160px] sm:max-w-xs text-base-content/80">
               {@quiz.title}
             </span>
           </div>
 
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap justify-end">
+            <!-- Audio Controls Toolbar -->
+            <div
+              id="game-audio-toolbar"
+              class="inline-flex items-center gap-1 bg-base-200/90 px-1.5 py-0.5 rounded-full border border-base-300 text-xs shadow-2xs"
+            >
+              <button
+                type="button"
+                id="audio-sfx-toggle"
+                class="btn btn-ghost btn-xs px-2 gap-1 rounded-full font-semibold"
+                title="Activer/Désactiver les effets sonores (clic, révélation)"
+              >
+                <span class="sfx-icon hero-speaker-wave size-3.5 text-emerald-500"></span>
+                <span class="sfx-text hidden sm:inline">SFX: On</span>
+              </button>
+              <div class="divider divider-horizontal mx-0 my-0.5"></div>
+              <button
+                type="button"
+                id="audio-music-toggle"
+                class="btn btn-ghost btn-xs px-2 gap-1 rounded-full font-semibold"
+                title="Activer/Désactiver la musique de fond"
+              >
+                <span class="music-icon hero-musical-note size-3.5 text-primary"></span>
+                <span class="music-text hidden sm:inline">Piste {@bg_music_track}</span>
+              </button>
+              <button
+                type="button"
+                id="audio-track-toggle"
+                class="btn btn-ghost btn-xs px-1.5 rounded-full"
+                title="Changer de musique de fond (3 musiques disponibles)"
+              >
+                <.icon name="hero-forward" class="size-3 text-base-content/70" />
+              </button>
+            </div>
             <%= if @is_host do %>
               <span id="host-badge" class="badge badge-neutral text-xs font-semibold gap-1">
                 <.icon name="hero-key" class="size-3 text-warning" /> Hôte

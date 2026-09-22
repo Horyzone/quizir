@@ -189,6 +189,7 @@ defmodule Quizir.Games.Session do
             end
 
           broadcast(new_state, {:player_joined, player})
+          broadcast_admin(new_state, :player_joined)
           {:reply, {:ok, player}, new_state}
       end
     end
@@ -281,6 +282,7 @@ defmodule Quizir.Games.Session do
         }
 
         broadcast(new_state, {:game_started, sanitize_state_for_broadcast(new_state)})
+        broadcast_admin(new_state, :game_started)
         {:reply, :ok, new_state}
     end
   end
@@ -538,6 +540,7 @@ defmodule Quizir.Games.Session do
       }
 
       broadcast(new_state, {:player_left, player_id})
+      broadcast_admin(new_state, :player_left)
 
       maybe_finish_question_early(new_state)
     else
@@ -678,7 +681,17 @@ defmodule Quizir.Games.Session do
       finished_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
 
-    Quizir.Games.create_game_record(attrs)
+    res = Quizir.Games.create_game_record(attrs)
+    broadcast_admin(state, :game_finished)
+    res
+  rescue
+    _ -> :ok
+  end
+
+  defp broadcast_admin(state, event) do
+    if pubsub = state.pubsub do
+      Phoenix.PubSub.broadcast(pubsub, "admin:dashboard", {:admin_game_event, event, state.code})
+    end
   rescue
     _ -> :ok
   end

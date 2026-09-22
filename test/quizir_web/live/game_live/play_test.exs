@@ -46,6 +46,21 @@ defmodule QuizirWeb.GameLive.PlayTest do
       assert has_element?(view, "#host-start-game-btn")
     end
 
+    test "renders game audio controller hook and audio toolbar with background music options", %{
+      conn: conn
+    } do
+      game = create_game_with_questions()
+
+      {:ok, view, _html} =
+        live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+
+      assert has_element?(view, "#game-audio-controller")
+      assert has_element?(view, "#game-audio-toolbar")
+      assert has_element?(view, "#audio-sfx-toggle")
+      assert has_element?(view, "#audio-music-toggle")
+      assert has_element?(view, "#audio-track-toggle")
+    end
+
     test "renders inline join form for visitor without player or host role", %{conn: conn} do
       game = create_game_with_questions()
 
