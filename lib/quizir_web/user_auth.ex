@@ -174,6 +174,8 @@ defmodule QuizirWeb.UserAuth do
     cond do
       path == ~p"/users/register" -> true
       path == ~p"/users/log_in" and method == "POST" -> true
+      path in [~p"/mentions-legales", ~p"/cgu", ~p"/rgpd"] -> true
+      String.starts_with?(path, "/legal") -> true
       String.starts_with?(path, "/dev") -> true
       true -> false
     end
@@ -194,7 +196,7 @@ defmodule QuizirWeb.UserAuth do
   ## LiveView Hooks
 
   def on_mount(:mount_current_user, _params, session, socket) do
-    if initial_setup_required?() do
+    if initial_setup_required?() and socket.view != QuizirWeb.LegalLive.Show do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
     else
       user = get_user_from_session(session)

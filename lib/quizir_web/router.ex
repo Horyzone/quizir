@@ -64,6 +64,12 @@ defmodule QuizirWeb.Router do
       live "/games", GameLive.Index, :index
       live "/join", GameLive.Join, :join
       live "/games/:code", GameLive.Play, :play
+
+      # Informations et documents légaux
+      live "/mentions-legales", LegalLive.Show, :mentions_legales
+      live "/cgu", LegalLive.Show, :cgu
+      live "/rgpd", LegalLive.Show, :rgpd
+      live "/legal/:page", LegalLive.Show, :show
     end
   end
 
