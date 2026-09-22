@@ -6,9 +6,9 @@ import Config
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
 config :quizir, Quizir.Repo,
-  username: "quizir",
-  password: "quizir",
-  hostname: "127.0.0.1",
+  username: System.get_env("POSTGRES_USER") || "quizir",
+  password: System.get_env("POSTGRES_PASSWORD") || "quizir",
+  hostname: System.get_env("POSTGRES_HOST") || "127.0.0.1",
   database: "quizir_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
