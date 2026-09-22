@@ -10,14 +10,20 @@ config :quizir, QuizirWeb.Endpoint, cache_static_manifest: "priv/static/cache_ma
 # Force using SSL in production. This also sets the "strict-security-transport" header,
 # known as HSTS. If you have a health check endpoint, you may want to exclude it below.
 # Note `:force_ssl` is required to be set at compile-time.
-config :quizir, QuizirWeb.Endpoint,
-  force_ssl: [
-    rewrite_on: [:x_forwarded_proto],
-    exclude: [
-      # paths: ["/health"],
-      hosts: ["localhost", "127.0.0.1"]
+force_ssl =
+  if System.get_env("FORCE_SSL") in ~w(false 0 FALSE no NO) do
+    false
+  else
+    [
+      rewrite_on: [:x_forwarded_proto],
+      exclude: [
+        # paths: ["/health"],
+        hosts: ["localhost", "127.0.0.1"]
+      ]
     ]
-  ]
+  end
+
+config :quizir, QuizirWeb.Endpoint, force_ssl: force_ssl
 
 # Configure Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req
