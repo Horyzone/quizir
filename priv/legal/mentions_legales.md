@@ -31,7 +31,7 @@ L'application est hébergée sur des infrastructures de serveurs dédiées à la
 
 L'ensemble des éléments constituant le site (code source, architecture, design de l'interface, composants visuels et textes) est la propriété exclusive de ses auteurs ou fait l'objet d'une utilisation sous licences libres (notamment les icônes Heroicons et polices open-source).
 
-Le code source applicatif est mis à disposition dans le respect des licences associées au projet. Toute reproduction du concept à des fins commerciales sans autorisation préalable est interdite.
+Le code source applicatif est mis à disposition sous licence libre **MIT** (voir fichier LICENSE). Toute reproduction du concept à des fins commerciales sans autorisation préalable est interdite.
 
 ---
 
