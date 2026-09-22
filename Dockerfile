@@ -6,7 +6,7 @@
 # de déployer des mises à jour dynamiquement sans redémarrer le conteneur.
 # ==============================================================================
 
-FROM elixir:1.17-slim
+FROM elixir:1.20.4-otp-29-slim
 
 # Paquets système essentiels :
 # - build-essential : compilateur C/make requis pour pbkdf2_elixir (NIFs)
@@ -44,6 +44,9 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY bin/deploy /usr/local/bin/deploy
 
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/deploy
+
+# Copie du code source applicatif (écrasé si monté en volume)
+COPY . /app
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["start"]
