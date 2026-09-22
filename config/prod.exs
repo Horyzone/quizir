@@ -7,20 +7,21 @@ import Config
 # before starting your production server.
 config :quizir, QuizirWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-# Force using SSL in production. This also sets the "strict-security-transport" header,
-# known as HSTS. If you have a health check endpoint, you may want to exclude it below.
-# Note `:force_ssl` is required to be set at compile-time.
+# In production with a reverse proxy, SSL/HTTPS is terminated upstream.
+# The container communicates strictly over plain HTTP.
+# FORCE_SSL is false by default to prevent any redirect loops between the reverse proxy and container.
+# If you want Phoenix to enforce SSL redirection, set FORCE_SSL=true.
 force_ssl =
-  if System.get_env("FORCE_SSL") in ~w(false 0 FALSE no NO) do
-    false
-  else
+  if System.get_env("FORCE_SSL") in ~w(true 1 TRUE yes YES) do
     [
       rewrite_on: [:x_forwarded_proto],
       exclude: [
         # paths: ["/health"],
-        hosts: ["localhost", "127.0.0.1"]
+        hosts: ["localhost", "127.0.0.1", "app", "quizir"]
       ]
     ]
+  else
+    false
   end
 
 config :quizir, QuizirWeb.Endpoint, force_ssl: force_ssl

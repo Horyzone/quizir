@@ -36,7 +36,7 @@ services:
       PHX_SCHEME: ${PHX_SCHEME:-https}
       PHX_PORT: ${PHX_PORT:-443}
       CHECK_ORIGIN: ${CHECK_ORIGIN:-}
-      FORCE_SSL: ${FORCE_SSL:-true}
+      FORCE_SSL: ${FORCE_SSL:-false}
       DATABASE_URL: ${DATABASE_URL:-ecto://quizir:quizir_password@db:5432/quizir_prod}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-ewnOAOv039z+/pdUcqB/ENNky3SfNX4OyawkJrjDornMFWYC4P7/Rx8gvpLqXwqi}
       # Passer à "true" pour recharger automatiquement les modifications de fichiers détectées sur le volume
