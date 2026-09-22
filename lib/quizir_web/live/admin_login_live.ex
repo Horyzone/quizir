@@ -17,7 +17,7 @@ defmodule QuizirWeb.AdminLoginLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} is_admin={true}>
       <div class="max-w-md mx-auto py-12">
         <div class="text-center mb-8">
           <div class="inline-flex p-3.5 rounded-2xl bg-error/10 text-error ring-1 ring-error/20 mb-3 shadow-inner">

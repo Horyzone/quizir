@@ -261,6 +261,7 @@ defmodule QuizirWeb.Admin.DashboardLive do
       flash={@flash}
       current_scope={@current_scope}
       current_admin_user={@current_admin_user}
+      is_admin={true}
       container_class="mx-auto max-w-7xl space-y-6"
     >
       <div class="space-y-6">

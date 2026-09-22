@@ -42,6 +42,26 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       assert has_element?(view, "#tab-games-btn")
       assert has_element?(view, "#admin-stats-view")
     end
+
+    test "navbar on admin interface does not render player navigation buttons (Explorer, Parties, Mes quiz, Rejoindre)",
+         %{
+           conn: conn,
+           admin: admin
+         } do
+      conn = log_in_admin(conn, admin)
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      # Navbar must not have player navigation buttons
+      refute has_element?(view, "header a[href='/quizzes']", "Explorer")
+      refute has_element?(view, "#nav-live-games-btn")
+      refute has_element?(view, "#nav-my-quizzes-btn")
+      refute has_element?(view, "header a[href='/join']")
+
+      # Navbar must have back to site link, admin badge, and admin menu
+      assert has_element?(view, "#nav-back-to-site-btn")
+      assert has_element?(view, "#admin-menu-btn")
+      assert has_element?(view, "#header-admin-badge")
+    end
   end
 
   describe "Detailed Statistics View" do

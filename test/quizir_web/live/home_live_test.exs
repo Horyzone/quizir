@@ -53,6 +53,15 @@ defmodule QuizirWeb.HomeLiveTest do
       assert html =~ "Hôte participant"
     end
 
+    test "navbar on public site renders player navigation buttons (Explorer, Parties, Rejoindre)",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "header a[href='/quizzes']", "Explorer")
+      assert has_element?(view, "#nav-live-games-btn")
+      assert has_element?(view, "header a[href='/join']")
+    end
+
     test "quick join validation on empty fields", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 

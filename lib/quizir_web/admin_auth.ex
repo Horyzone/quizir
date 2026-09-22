@@ -118,6 +118,7 @@ defmodule QuizirWeb.AdminAuth do
 
       {:cont,
        socket
+       |> Phoenix.Component.assign_new(:is_admin, fn -> true end)
        |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)
        |> Phoenix.Component.assign_new(:current_user, fn -> player_user end)
        |> Phoenix.Component.assign_new(:current_scope, fn ->
@@ -147,6 +148,7 @@ defmodule QuizirWeb.AdminAuth do
 
       {:cont,
        socket
+       |> Phoenix.Component.assign_new(:is_admin, fn -> true end)
        |> Phoenix.Component.assign_new(:current_admin_user, fn -> nil end)
        |> Phoenix.Component.assign_new(:current_user, fn -> player_user end)
        |> Phoenix.Component.assign_new(:current_scope, fn ->

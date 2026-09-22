@@ -35,6 +35,10 @@ defmodule QuizirWeb.Layouts do
     default: nil,
     doc: "the current authenticated admin user"
 
+  attr :is_admin, :boolean,
+    default: false,
+    doc: "whether to render the admin navbar instead of player navigation"
+
   attr :container_class, :string,
     default: "mx-auto max-w-4xl space-y-4",
     doc: "the class for the inner main container"
@@ -55,265 +59,357 @@ defmodule QuizirWeb.Layouts do
           />
           <span class="text-xl font-black tracking-tight text-primary select-none shrink-0">Quizir</span>
         </.link>
-        <%= if @current_admin_user do %>
-          <.link
-            navigate={~p"/admin"}
+        <%= if @is_admin do %>
+          <span
             id="header-admin-badge"
-            class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error/10 border border-error/30 text-error hover:bg-error/20 text-xs font-bold transition-colors"
-            title={"Session admin active (#{@current_admin_user.username})"}
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error/10 border border-error/30 text-error text-xs font-bold"
           >
             <.icon name="hero-shield-check" class="size-3.5" />
             <span>Admin</span>
-          </.link>
+          </span>
+        <% else %>
+          <%= if @current_admin_user do %>
+            <.link
+              navigate={~p"/admin"}
+              id="header-admin-badge"
+              class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error/10 border border-error/30 text-error hover:bg-error/20 text-xs font-bold transition-colors"
+              title={"Session admin active (#{@current_admin_user.username})"}
+            >
+              <.icon name="hero-shield-check" class="size-3.5" />
+              <span>Admin</span>
+            </.link>
+          <% end %>
         <% end %>
       </div>
 
       <!-- Desktop Navigation (md and above) -->
       <div class="hidden md:flex items-center gap-2 lg:gap-3">
-        <.link navigate={~p"/quizzes"} class="btn btn-ghost btn-sm font-medium">
-          Explorer
-        </.link>
-        <.link
-          navigate={~p"/games"}
-          id="nav-live-games-btn"
-          class="btn btn-ghost btn-sm font-medium gap-1.5"
-        >
-          <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span> Parties
-        </.link>
-        <%= if @current_scope && @current_scope.user do %>
-          <.link navigate={~p"/my-quizzes"} class="btn btn-ghost btn-sm font-medium">
-            Mes quiz
-          </.link>
-        <% end %>
-        <.link navigate={~p"/join"} class="btn btn-primary btn-sm font-bold gap-1 shadow-sm">
-          <.icon name="hero-play" class="size-4" /> Rejoindre
-        </.link>
-
-        <%= if @current_admin_user do %>
+        <%= if @is_admin do %>
           <.link
-            navigate={~p"/admin"}
-            id="nav-admin-btn"
-            class="btn btn-error btn-outline btn-sm font-bold gap-1 shadow-xs"
+            navigate={~p"/"}
+            id="nav-back-to-site-btn"
+            class="btn btn-ghost btn-sm font-medium gap-1.5"
+            title="Revenir au site public"
           >
-            <.icon name="hero-shield-check" class="size-4" /> Admin
+            <.icon name="hero-arrow-top-right-on-square" class="size-4" />
+            <span>Voir le site</span>
           </.link>
-        <% end %>
 
-        <%= if @current_scope && @current_scope.user do %>
-          <div class="dropdown dropdown-end">
-            <div
-              tabindex="0"
-              role="button"
-              id="user-menu-btn"
-              class="btn btn-ghost btn-sm gap-1.5 font-semibold"
-            >
-              <.icon name="hero-user-circle" class="size-4 text-primary" />
-              <span class="max-w-[120px] truncate">{@current_scope.user.username}</span>
-              <.icon name="hero-chevron-down" class="size-3 text-zinc-400" />
-            </div>
-            <ul
-              tabindex="0"
-              class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
-            >
-              <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
-                Connecté en tant que
-                <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
-              </li>
-              <%= if @current_scope.user.admin do %>
+          <%= if @current_admin_user do %>
+            <div class="dropdown dropdown-end">
+              <div
+                tabindex="0"
+                role="button"
+                id="admin-menu-btn"
+                class="btn btn-ghost btn-sm gap-1.5 font-semibold text-error"
+              >
+                <.icon name="hero-shield-check" class="size-4 text-error" />
+                <span class="max-w-[140px] truncate">{@current_admin_user.username}</span>
+                <.icon name="hero-chevron-down" class="size-3 text-zinc-400" />
+              </div>
+              <ul
+                tabindex="0"
+                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
+              >
+                <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
+                  Administrateur
+                  <span class="text-base-content block font-semibold truncate">{@current_admin_user.username}</span>
+                </li>
                 <li>
-                  <.link
-                    navigate={~p"/admin"}
-                    id="nav-admin-portal-link"
-                    class="text-xs font-bold text-error"
-                  >
-                    <.icon name="hero-shield-check" class="size-4 text-error" /> Administration
+                  <.link navigate={~p"/admin"} class="text-xs font-semibold">
+                    <.icon name="hero-squares-2x2" class="size-4 text-error" /> Tableau de bord
                   </.link>
                 </li>
                 <div class="divider my-1"></div>
-              <% end %>
-              <li>
-                <.link
-                  navigate={~p"/my-quizzes"}
-                  id="nav-my-quizzes-btn"
-                  class="text-xs font-semibold"
-                >
-                  <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
-                </.link>
-              </li>
-              <li>
-                <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold">
-                  <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
-                </.link>
-              </li>
-              <li>
-                <.link
-                  navigate={~p"/users/settings"}
-                  id="nav-settings-btn"
-                  class="text-xs font-semibold"
-                >
-                  <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
-                </.link>
-              </li>
-              <div class="divider my-1"></div>
-              <li>
-                <.link
-                  id="logout-btn"
-                  href={~p"/users/log_out"}
-                  method="delete"
-                  class="text-xs text-error font-semibold"
-                >
-                  <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
-                </.link>
-              </li>
-            </ul>
-          </div>
-        <% else %>
-          <.link
-            id="nav-login-btn"
-            navigate={~p"/users/log_in"}
-            class="btn btn-ghost btn-sm font-medium"
-          >
-            Connexion
-          </.link>
-          <.link
-            id="nav-register-btn"
-            navigate={~p"/users/register"}
-            class="btn btn-outline btn-sm font-medium"
-          >
-            S'inscrire
-          </.link>
-        <% end %>
+                <li>
+                  <.link
+                    id="nav-admin-logout-btn"
+                    href={~p"/admin/log_out"}
+                    method="delete"
+                    class="text-xs text-error font-semibold"
+                  >
+                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion Admin
+                  </.link>
+                </li>
+              </ul>
+            </div>
+          <% end %>
 
-        <.theme_toggle />
+          <.theme_toggle />
+        <% else %>
+          <.link navigate={~p"/quizzes"} class="btn btn-ghost btn-sm font-medium">
+            Explorer
+          </.link>
+          <.link
+            navigate={~p"/games"}
+            id="nav-live-games-btn"
+            class="btn btn-ghost btn-sm font-medium gap-1.5"
+          >
+            <span class="size-2 rounded-full bg-emerald-500 animate-pulse"></span> Parties
+          </.link>
+          <%= if @current_scope && @current_scope.user do %>
+            <.link navigate={~p"/my-quizzes"} class="btn btn-ghost btn-sm font-medium">
+              Mes quiz
+            </.link>
+          <% end %>
+          <.link navigate={~p"/join"} class="btn btn-primary btn-sm font-bold gap-1 shadow-sm">
+            <.icon name="hero-play" class="size-4" /> Rejoindre
+          </.link>
+
+          <%= if @current_admin_user do %>
+            <.link
+              navigate={~p"/admin"}
+              id="nav-admin-btn"
+              class="btn btn-error btn-outline btn-sm font-bold gap-1 shadow-xs"
+            >
+              <.icon name="hero-shield-check" class="size-4" /> Admin
+            </.link>
+          <% end %>
+
+          <%= if @current_scope && @current_scope.user do %>
+            <div class="dropdown dropdown-end">
+              <div
+                tabindex="0"
+                role="button"
+                id="user-menu-btn"
+                class="btn btn-ghost btn-sm gap-1.5 font-semibold"
+              >
+                <.icon name="hero-user-circle" class="size-4 text-primary" />
+                <span class="max-w-[120px] truncate">{@current_scope.user.username}</span>
+                <.icon name="hero-chevron-down" class="size-3 text-zinc-400" />
+              </div>
+              <ul
+                tabindex="0"
+                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
+              >
+                <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
+                  Connecté en tant que
+                  <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
+                </li>
+                <%= if @current_scope.user.admin do %>
+                  <li>
+                    <.link
+                      navigate={~p"/admin"}
+                      id="nav-admin-portal-link"
+                      class="text-xs font-bold text-error"
+                    >
+                      <.icon name="hero-shield-check" class="size-4 text-error" /> Administration
+                    </.link>
+                  </li>
+                  <div class="divider my-1"></div>
+                <% end %>
+                <li>
+                  <.link
+                    navigate={~p"/my-quizzes"}
+                    id="nav-my-quizzes-btn"
+                    class="text-xs font-semibold"
+                  >
+                    <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold">
+                    <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link
+                    navigate={~p"/users/settings"}
+                    id="nav-settings-btn"
+                    class="text-xs font-semibold"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
+                  </.link>
+                </li>
+                <div class="divider my-1"></div>
+                <li>
+                  <.link
+                    id="logout-btn"
+                    href={~p"/users/log_out"}
+                    method="delete"
+                    class="text-xs text-error font-semibold"
+                  >
+                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
+                  </.link>
+                </li>
+              </ul>
+            </div>
+          <% else %>
+            <.link
+              id="nav-login-btn"
+              navigate={~p"/users/log_in"}
+              class="btn btn-ghost btn-sm font-medium"
+            >
+              Connexion
+            </.link>
+            <.link
+              id="nav-register-btn"
+              navigate={~p"/users/register"}
+              class="btn btn-outline btn-sm font-medium"
+            >
+              S'inscrire
+            </.link>
+          <% end %>
+
+          <.theme_toggle />
+        <% end %>
       </div>
 
       <!-- Mobile Navigation (< md) -->
       <div class="flex md:hidden items-center gap-1.5 sm:gap-2">
-        <%= if @current_admin_user do %>
+        <%= if @is_admin do %>
           <.link
-            navigate={~p"/admin"}
-            class="btn btn-error btn-outline btn-xs font-bold gap-1 px-2"
-            title="Administration"
+            navigate={~p"/"}
+            id="mobile-nav-back-to-site-btn"
+            class="btn btn-ghost btn-xs sm:btn-sm font-semibold gap-1"
+            title="Revenir au site public"
           >
-            <.icon name="hero-shield-check" class="size-3.5" />
-            <span>Admin</span>
+            <.icon name="hero-arrow-top-right-on-square" class="size-3.5" />
+            <span class="hidden xs:inline">Site</span>
           </.link>
-        <% end %>
 
-        <.link
-          navigate={~p"/join"}
-          class="btn btn-primary btn-sm font-bold gap-1 px-2.5 shadow-xs"
-          title="Rejoindre avec un PIN"
-        >
-          <.icon name="hero-play" class="size-4 shrink-0" />
-          <span>Rejoindre</span>
-        </.link>
-
-        <.theme_toggle />
-
-        <%= if @current_scope && @current_scope.user do %>
-          <div class="dropdown dropdown-end">
-            <div
-              tabindex="0"
-              role="button"
-              id="mobile-user-menu-btn"
-              class="btn btn-ghost btn-sm btn-circle"
-              aria-label="Menu utilisateur"
+          <%= if @current_admin_user do %>
+            <.link
+              href={~p"/admin/log_out"}
+              method="delete"
+              id="mobile-nav-admin-logout-btn"
+              class="btn btn-ghost btn-error btn-xs sm:btn-sm font-bold gap-1 px-2"
+              title="Déconnexion Admin"
             >
-              <.icon name="hero-user-circle" class="size-6 text-primary" />
-            </div>
-            <ul
-              tabindex="0"
-              class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-56 border border-base-200 mt-2 z-50"
+              <.icon name="hero-arrow-right-on-rectangle" class="size-3.5" />
+              <span class="hidden xs:inline">Quitter</span>
+            </.link>
+          <% end %>
+
+          <.theme_toggle />
+        <% else %>
+          <%= if @current_admin_user do %>
+            <.link
+              navigate={~p"/admin"}
+              class="btn btn-error btn-outline btn-xs font-bold gap-1 px-2"
+              title="Administration"
             >
-              <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
-                Connecté en tant que
-                <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
-              </li>
-              <%= if @current_scope.user.admin do %>
+              <.icon name="hero-shield-check" class="size-3.5" />
+              <span>Admin</span>
+            </.link>
+          <% end %>
+
+          <.link
+            navigate={~p"/join"}
+            class="btn btn-primary btn-sm font-bold gap-1 px-2.5 shadow-xs"
+            title="Rejoindre avec un PIN"
+          >
+            <.icon name="hero-play" class="size-4 shrink-0" />
+            <span>Rejoindre</span>
+          </.link>
+
+          <.theme_toggle />
+
+          <%= if @current_scope && @current_scope.user do %>
+            <div class="dropdown dropdown-end">
+              <div
+                tabindex="0"
+                role="button"
+                id="mobile-user-menu-btn"
+                class="btn btn-ghost btn-sm btn-circle"
+                aria-label="Menu utilisateur"
+              >
+                <.icon name="hero-user-circle" class="size-6 text-primary" />
+              </div>
+              <ul
+                tabindex="0"
+                class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-56 border border-base-200 mt-2 z-50"
+              >
+                <li class="menu-title px-4 py-1 text-xs text-zinc-400 font-bold">
+                  Connecté en tant que
+                  <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
+                </li>
+                <%= if @current_scope.user.admin do %>
+                  <li>
+                    <.link navigate={~p"/admin"} class="text-xs font-bold text-error py-2">
+                      <.icon name="hero-shield-check" class="size-4 text-error" /> Administration
+                    </.link>
+                  </li>
+                  <div class="divider my-1"></div>
+                <% end %>
                 <li>
-                  <.link navigate={~p"/admin"} class="text-xs font-bold text-error py-2">
-                    <.icon name="hero-shield-check" class="size-4 text-error" /> Administration
+                  <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/games"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-globe-alt" class="size-4 text-emerald-500" /> Parties en cours
                   </.link>
                 </li>
                 <div class="divider my-1"></div>
-              <% end %>
-              <li>
-                <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz
-                </.link>
-              </li>
-              <li>
-                <.link navigate={~p"/games"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-globe-alt" class="size-4 text-emerald-500" /> Parties en cours
-                </.link>
-              </li>
-              <div class="divider my-1"></div>
-              <li>
-                <.link navigate={~p"/my-quizzes"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
-                </.link>
-              </li>
-              <li>
-                <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
-                </.link>
-              </li>
-              <li>
-                <.link navigate={~p"/users/settings"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
-                </.link>
-              </li>
-              <div class="divider my-1"></div>
-              <li>
-                <.link
-                  href={~p"/users/log_out"}
-                  method="delete"
-                  class="text-xs text-error font-semibold py-2"
-                >
-                  <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
-                </.link>
-              </li>
-            </ul>
-          </div>
-        <% else %>
-          <div class="dropdown dropdown-end">
-            <div
-              tabindex="0"
-              role="button"
-              id="mobile-guest-menu-btn"
-              class="btn btn-ghost btn-sm btn-circle"
-              aria-label="Menu de navigation"
-            >
-              <.icon name="hero-bars-3" class="size-5" />
+                <li>
+                  <.link navigate={~p"/my-quizzes"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-rectangle-stack" class="size-4 text-primary" /> Mes quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/quizzes/new"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-plus-circle" class="size-4 text-primary" /> Créer un quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/users/settings"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
+                  </.link>
+                </li>
+                <div class="divider my-1"></div>
+                <li>
+                  <.link
+                    href={~p"/users/log_out"}
+                    method="delete"
+                    class="text-xs text-error font-semibold py-2"
+                  >
+                    <.icon name="hero-arrow-right-on-rectangle" class="size-4" /> Déconnexion
+                  </.link>
+                </li>
+              </ul>
             </div>
-            <ul
-              tabindex="0"
-              class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
-            >
-              <li>
-                <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz
-                </.link>
-              </li>
-              <li>
-                <.link navigate={~p"/games"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-globe-alt" class="size-4 text-emerald-500" /> Parties en cours
-                </.link>
-              </li>
-              <div class="divider my-1"></div>
-              <li>
-                <.link navigate={~p"/users/log_in"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-arrow-left-on-rectangle" class="size-4 text-primary" /> Connexion
-                </.link>
-              </li>
-              <li>
-                <.link navigate={~p"/users/register"} class="text-xs font-semibold py-2">
-                  <.icon name="hero-user-plus" class="size-4 text-primary" /> S'inscrire
-                </.link>
-              </li>
-            </ul>
-          </div>
+          <% else %>
+            <div class="dropdown dropdown-end">
+              <div
+                tabindex="0"
+                role="button"
+                id="mobile-guest-menu-btn"
+                class="btn btn-ghost btn-sm btn-circle"
+                aria-label="Menu de navigation"
+              >
+                <.icon name="hero-bars-3" class="size-5" />
+              </div>
+              <ul
+                tabindex="0"
+                class="dropdown-content menu p-2 shadow-xl bg-base-100 rounded-2xl w-52 border border-base-200 mt-2 z-50"
+              >
+                <li>
+                  <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/games"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-globe-alt" class="size-4 text-emerald-500" /> Parties en cours
+                  </.link>
+                </li>
+                <div class="divider my-1"></div>
+                <li>
+                  <.link navigate={~p"/users/log_in"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-arrow-left-on-rectangle" class="size-4 text-primary" />
+                    Connexion
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/users/register"} class="text-xs font-semibold py-2">
+                    <.icon name="hero-user-plus" class="size-4 text-primary" /> S'inscrire
+                  </.link>
+                </li>
+              </ul>
+            </div>
+          <% end %>
         <% end %>
       </div>
     </header>

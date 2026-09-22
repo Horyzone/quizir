@@ -13,6 +13,21 @@ defmodule QuizirWeb.AdminLoginLiveTest do
       assert has_element?(view, "#admin-login-submit-btn")
     end
 
+    test "navbar on /admin/log_in does not render player navigation buttons (Explorer, Parties, Mes quiz, Rejoindre)",
+         %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/log_in")
+
+      # Navbar must not have player navigation buttons
+      refute has_element?(view, "header a[href='/quizzes']", "Explorer")
+      refute has_element?(view, "#nav-live-games-btn")
+      refute has_element?(view, "#nav-my-quizzes-btn")
+      refute has_element?(view, "header a[href='/join']")
+
+      # Navbar must have back to site link and admin badge
+      assert has_element?(view, "#nav-back-to-site-btn")
+      assert has_element?(view, "#header-admin-badge")
+    end
+
     test "redirects to /admin if admin is already logged in", %{conn: conn} do
       admin = admin_user_fixture()
       conn = log_in_admin(conn, admin)
