@@ -4,9 +4,6 @@
 
 ![Elixir](https://img.shields.io/badge/Elixir-1.18%2B-purple.svg?style=for-the-badge&logo=elixir)
 ![Phoenix](https://img.shields.io/badge/Phoenix-v1.8%2B-orange.svg?style=for-the-badge&logo=phoenixframework)
-![LiveView](https://img.shields.io/badge/LiveView-1.x-blue.svg?style=for-the-badge)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg?style=for-the-badge&logo=postgresql)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-38B2AC.svg?style=for-the-badge&logo=tailwind-css)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?style=for-the-badge&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
 [![CI - Tests](https://github.com/Horyzone/quizir/actions/workflows/ci.yml/badge.svg)](https://github.com/Horyzone/quizir/actions/workflows/ci.yml)
@@ -130,7 +127,7 @@ Lancez l'ensemble des services (base de données et application Phoenix) en arri
 docker compose up --build -d
 ```
 
-> **Note :** Si vous utilisez l'ancienne commande Docker Compose, tapez `docker-compose up --build -d`.
+> **Note :** Si vous utilisez l'ancienne commande Docker Compose, tapez `docker compose up --build -d`.
 
 ### 3. Accéder à Quizir
 Ouvrez votre navigateur sur :

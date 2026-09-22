@@ -23,8 +23,6 @@ quizir-*.tar
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log
 /assets/node_modules/
-# Ignore PostgreSQL data directory.
-/quizir_data/
 # Ignore Visual Studio Code workspace settings.
 .vscode/
 
