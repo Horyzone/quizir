@@ -67,7 +67,7 @@ defmodule QuizirWeb.AdminLoginLive do
                 variant="primary"
                 class="btn btn-primary btn-lg w-full font-bold shadow-md shadow-primary/20 gap-2"
               >
-                <.icon name="hero-key" class="size-5" /> Accéder au panneau d'administration
+                <.icon name="hero-key" class="size-5" /> Se connecter
               </.button>
             </div>
           </.form>

@@ -20,6 +20,8 @@ defmodule Quizir.Games.Session do
     time_remaining: 0,
     timer_ref: nil,
     timer_interval: 1000,
+    cleanup_timer_ref: nil,
+    cleanup_timeout: 60_000,
     pubsub: Quizir.PubSub,
     players: %{},
     answers: %{},
@@ -97,6 +99,7 @@ defmodule Quizir.Games.Session do
     quiz = Keyword.fetch!(opts, :quiz)
     pubsub = Keyword.get(opts, :pubsub, Quizir.PubSub)
     timer_interval = Keyword.get(opts, :timer_interval, 1000)
+    cleanup_timeout = Keyword.get(opts, :cleanup_timeout, 60_000)
     raw_visibility = Keyword.get(opts, :visibility, "public")
 
     visibility =
@@ -121,6 +124,8 @@ defmodule Quizir.Games.Session do
       current_question_index: 0,
       time_remaining: 0,
       timer_interval: timer_interval,
+      cleanup_timer_ref: nil,
+      cleanup_timeout: cleanup_timeout,
       pubsub: pubsub,
       players: %{},
       answers: %{},
@@ -165,6 +170,7 @@ defmodule Quizir.Games.Session do
             else
               state
             end
+            |> maybe_schedule_cleanup()
 
           {:reply, {:ok, player}, new_state}
 
@@ -187,6 +193,7 @@ defmodule Quizir.Games.Session do
             else
               new_state
             end
+            |> maybe_schedule_cleanup()
 
           broadcast(new_state, {:player_joined, player})
           broadcast_admin(new_state, :player_joined)
@@ -211,6 +218,7 @@ defmodule Quizir.Games.Session do
           else
             state
           end
+          |> maybe_schedule_cleanup()
 
         {:reply, {:ok, player}, new_state}
 
@@ -232,6 +240,7 @@ defmodule Quizir.Games.Session do
     if should_terminate_session?(new_state) do
       {:stop, :normal, :ok, new_state}
     else
+      new_state = maybe_schedule_cleanup(new_state)
       {:reply, :ok, new_state}
     end
   end
@@ -239,7 +248,10 @@ defmodule Quizir.Games.Session do
   @impl true
   def handle_call({:track_player, player_id, pid}, _from, state) do
     if Map.has_key?(state.players, player_id) do
-      new_state = track_player_process(state, player_id, pid)
+      new_state =
+        track_player_process(state, player_id, pid)
+        |> maybe_schedule_cleanup()
+
       {:reply, :ok, new_state}
     else
       {:reply, {:error, :player_not_found}, state}
@@ -390,6 +402,7 @@ defmodule Quizir.Games.Session do
             leaderboard = build_leaderboard(state.players)
             broadcast(new_state, {:game_finished, leaderboard})
             record_completed_game(new_state, leaderboard)
+            new_state = maybe_schedule_cleanup(new_state)
             {:reply, :ok, new_state}
           end
 
@@ -423,6 +436,7 @@ defmodule Quizir.Games.Session do
         if should_terminate_session?(new_state) do
           {:stop, :normal, new_state}
         else
+          new_state = maybe_schedule_cleanup(new_state)
           {:noreply, new_state}
         end
 
@@ -440,6 +454,15 @@ defmodule Quizir.Games.Session do
     end
   end
 
+  @impl true
+  def handle_info(:cleanup_timeout, state) do
+    if should_schedule_cleanup?(state) do
+      {:stop, :normal, state}
+    else
+      {:noreply, %{state | cleanup_timer_ref: nil}}
+    end
+  end
+
   def handle_info(:tick, state) do
     {:noreply, state}
   end
@@ -447,7 +470,9 @@ defmodule Quizir.Games.Session do
   @impl true
   def terminate(_reason, state) do
     cancel_timer(state)
+    cancel_cleanup_timer(state)
     broadcast(state, {:session_terminated, "Cette session a pris fin."})
+    broadcast_admin(state, :game_terminated)
     :ok
   end
 
@@ -542,7 +567,9 @@ defmodule Quizir.Games.Session do
       broadcast(new_state, {:player_left, player_id})
       broadcast_admin(new_state, :player_left)
 
-      maybe_finish_question_early(new_state)
+      new_state
+      |> maybe_finish_question_early()
+      |> maybe_schedule_cleanup()
     else
       state
     end
@@ -564,6 +591,31 @@ defmodule Quizir.Games.Session do
   end
 
   defp cancel_timer(_), do: :ok
+
+  defp should_schedule_cleanup?(state) do
+    map_size(state.players) == 0 and
+      state.status in [:question, :reveal, :leaderboard, :finished]
+  end
+
+  defp maybe_schedule_cleanup(state) do
+    if should_schedule_cleanup?(state) do
+      if state.cleanup_timer_ref do
+        state
+      else
+        timer_ref = Process.send_after(self(), :cleanup_timeout, state.cleanup_timeout)
+        %{state | cleanup_timer_ref: timer_ref}
+      end
+    else
+      cancel_cleanup_timer(state)
+    end
+  end
+
+  defp cancel_cleanup_timer(%{cleanup_timer_ref: ref} = state) when is_reference(ref) do
+    Process.cancel_timer(ref)
+    %{state | cleanup_timer_ref: nil}
+  end
+
+  defp cancel_cleanup_timer(state), do: %{state | cleanup_timer_ref: nil}
 
   defp maybe_finish_question_early(%{status: :question} = state) do
     total_players = map_size(state.players)

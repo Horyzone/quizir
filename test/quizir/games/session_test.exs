@@ -268,5 +268,92 @@ defmodule Quizir.Games.SessionTest do
       state_fin = Session.get_state(pid)
       assert state_fin.status == :finished
     end
+
+    test "automatically terminates finished session when all players leave" do
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 50)
+      ref = Process.monitor(pid)
+
+      {:ok, alice} = Session.join_player(pid, "Alice")
+      :ok = Session.start_game(pid, host_token)
+
+      {:ok, _} = Session.submit_answer(pid, alice.id, 101)
+      :ok = Session.next_step(pid, host_token)
+      :ok = Session.next_step(pid, host_token)
+      {:ok, _} = Session.submit_answer(pid, alice.id, 201)
+      :ok = Session.next_step(pid, host_token)
+      :ok = Session.next_step(pid, host_token)
+
+      state_fin = Session.get_state(pid)
+      assert state_fin.status == :finished
+
+      # Alice leaves the finished game
+      :ok = Session.leave_player(pid, alice.id)
+
+      # Session should terminate after cleanup_timeout (50ms)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
+    end
+
+    test "automatically terminates session in-game when all players leave" do
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 50)
+      ref = Process.monitor(pid)
+
+      {:ok, alice} = Session.join_player(pid, "Alice")
+      :ok = Session.start_game(pid, host_token)
+
+      # Alice leaves while in :question state
+      :ok = Session.leave_player(pid, alice.id)
+
+      # Session terminates because 0 players remain in active game
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
+    end
+
+    test "schedules cleanup timer when all players leave during active game" do
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 10_000)
+
+      {:ok, alice} = Session.join_player(pid, "Alice")
+      :ok = Session.start_game(pid, host_token)
+
+      state_before = Session.get_state(pid)
+      assert state_before.cleanup_timer_ref == nil
+
+      :ok = Session.leave_player(pid, alice.id)
+      state_after = Session.get_state(pid)
+      assert state_after.cleanup_timer_ref != nil
+    end
+
+    test "automatically terminates when game finishes with 0 players" do
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 50)
+      ref = Process.monitor(pid)
+
+      {:ok, alice} = Session.join_player(pid, "Alice")
+      :ok = Session.start_game(pid, host_token)
+
+      # Alice answers Q1
+      {:ok, _} = Session.submit_answer(pid, alice.id, 101)
+      :ok = Session.next_step(pid, host_token)
+
+      # Alice leaves before Q2
+      :ok = Session.leave_player(pid, alice.id)
+
+      # -> Q2
+      :ok = Session.next_step(pid, host_token)
+
+      # Fast forward Q2 timer by sending tick with time_remaining: 1
+      :sys.replace_state(pid, fn s -> %{s | time_remaining: 1} end)
+      send(pid, :tick)
+      _ = :sys.get_state(pid)
+
+      # -> Leaderboard
+      :ok = Session.next_step(pid, host_token)
+      # -> Finished
+      :ok = Session.next_step(pid, host_token)
+
+      state_fin = Session.get_state(pid)
+      assert state_fin.status == :finished
+      assert map_size(state_fin.players) == 0
+
+      # Since 0 players in :finished, terminates after cleanup_timeout (50ms)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
+    end
   end
 end
