@@ -255,4 +255,37 @@ defmodule Quizir.QuizzesTest do
       assert %Ecto.Changeset{} = Quizzes.change_answer_option(answer_option)
     end
   end
+
+  describe "admin quizzes context" do
+    import Quizir.QuizzesFixtures
+    import Quizir.AccountsFixtures
+
+    test "count_quizzes/0, count_public_quizzes/0, count_private_quizzes/0" do
+      _pub1 = quiz_fixture(%{visibility: "public"})
+      _pub2 = quiz_fixture(%{visibility: "public"})
+      _priv1 = quiz_fixture(%{visibility: "private"})
+
+      assert Quizzes.count_quizzes() >= 3
+      assert Quizzes.count_public_quizzes() >= 2
+      assert Quizzes.count_private_quizzes() >= 1
+    end
+
+    test "list_quizzes_for_admin/1 with and without search" do
+      user = user_fixture(%{username: "quizcreator"})
+      q1 = quiz_fixture(%{title: "Cinéma Français", description: "Le 7eme art", user: user})
+      q2 = quiz_fixture(%{title: "Jeux Vidéo Rétro", description: "Pixel art et 8-bit"})
+
+      admin_list = Quizzes.list_quizzes_for_admin()
+      assert Enum.any?(admin_list, &(&1.id == q1.id))
+      assert Enum.any?(admin_list, &(&1.id == q2.id))
+
+      search_res = Quizzes.list_quizzes_for_admin(search: "Cinéma")
+      assert Enum.any?(search_res, &(&1.id == q1.id))
+      refute Enum.any?(search_res, &(&1.id == q2.id))
+
+      search_desc = Quizzes.list_quizzes_for_admin(search: "Pixel")
+      assert Enum.any?(search_desc, &(&1.id == q2.id))
+      refute Enum.any?(search_desc, &(&1.id == q1.id))
+    end
+  end
 end

@@ -80,5 +80,25 @@ defmodule Quizir.GamesTest do
       assert Games.get_game_state("UNKNOWN") == {:error, :not_found}
       assert Games.join_game("UNKNOWN", "Alice") == {:error, :not_found}
     end
+
+    test "list_all_active_games/0, count_active_games/0, terminate_game_by_admin/1" do
+      quiz = create_persisted_quiz()
+      {:ok, %{code: pub_code}} = Games.create_game(quiz, visibility: "public")
+      {:ok, %{code: priv_code}} = Games.create_game(quiz, visibility: "private")
+
+      assert Games.count_active_games() >= 2
+      all_games = Games.list_all_active_games()
+      all_codes = Enum.map(all_games, & &1.code)
+
+      assert pub_code in all_codes
+      assert priv_code in all_codes
+
+      # Terminate game
+      assert :ok = Games.terminate_game_by_admin(pub_code)
+      refute Games.game_exists?(pub_code)
+
+      # Non-existent game termination returns :not_found
+      assert {:error, :not_found} = Games.terminate_game_by_admin("NONEXISTENT")
+    end
   end
 end

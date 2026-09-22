@@ -216,4 +216,114 @@ defmodule Quizir.Accounts do
   def change_user_password_update(%User{} = user, attrs \\ %{}) do
     User.password_update_changeset(user, attrs, hash_password: false)
   end
+
+  ## Admin Session & Management
+
+  @doc """
+  Generates an admin session token for an administrator user.
+  Returns token binary on success, nil if user is not admin.
+  """
+  def generate_admin_session_token(%User{admin: true} = user) do
+    {token, user_token} = UserToken.build_admin_session_token(user)
+    Repo.insert!(user_token)
+    token
+  end
+
+  def generate_admin_session_token(_), do: nil
+
+  @doc """
+  Gets the user by admin session token.
+  Only returns the user if token is valid and user is still an admin.
+  """
+  def get_user_by_admin_session_token(token) when is_binary(token) do
+    UserToken.verify_admin_session_token_query(token)
+    |> Repo.one()
+  end
+
+  def get_user_by_admin_session_token(_), do: nil
+
+  @doc """
+  Deletes the admin session token.
+  """
+  def delete_admin_session_token(token) when is_binary(token) do
+    Repo.delete_all(UserToken.by_token_and_context_query(token, "admin_session"))
+    :ok
+  end
+
+  def delete_admin_session_token(_), do: :ok
+
+  @doc """
+  Lists users with optional search filter (search by username or email).
+  """
+  def list_users(opts \\ []) do
+    search = Keyword.get(opts, :search, "") |> to_string() |> String.trim()
+
+    query =
+      from u in User,
+        order_by: [desc: u.inserted_at, desc: u.id]
+
+    query =
+      if search != "" do
+        pattern = "%#{search}%"
+        from u in query, where: ilike(u.username, ^pattern) or ilike(u.email, ^pattern)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Counts total registered users.
+  """
+  def count_users do
+    Repo.aggregate(User, :count, :id) || 0
+  end
+
+  @doc """
+  Counts total admin users.
+  """
+  def count_admins do
+    from(u in User, where: u.admin == true)
+    |> Repo.aggregate(:count, :id)
+    |> Kernel.||(0)
+  end
+
+  @doc """
+  Updates a user's admin status.
+  Prevents removing admin status from oneself.
+  """
+  def update_user_admin(%User{} = user, is_admin, %User{} = current_admin)
+      when is_boolean(is_admin) do
+    if user.id == current_admin.id and not is_admin do
+      {:error, :cannot_demote_self}
+    else
+      user
+      |> User.admin_changeset(%{admin: is_admin})
+      |> Repo.update()
+      |> case do
+        {:ok, _updated_user} = result ->
+          if not is_admin do
+            Repo.delete_all(UserToken.by_user_and_contexts_query(user, ["admin_session"]))
+          end
+
+          result
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Deletes a user account by an admin.
+  Prevents an admin from deleting their own account.
+  """
+  def delete_user_by_admin(%User{} = user, %User{} = current_admin) do
+    if user.id == current_admin.id do
+      {:error, :cannot_delete_self}
+    else
+      Repo.delete(user)
+    end
+  end
 end

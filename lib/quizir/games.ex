@@ -64,6 +64,42 @@ defmodule Quizir.Games do
   end
 
   @doc """
+  Retourne toutes les sessions de jeu actives (publiques et privées) pour l'administration.
+  """
+  def list_all_active_games do
+    Registry.select(SessionRegistry, [{{:"$1", :"$2", :"$3"}, [], [{{:"$1", :"$2"}}]}])
+    |> Enum.map(fn {_code, pid} ->
+      try do
+        Session.get_state(pid)
+      catch
+        :exit, _ -> nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.sort_by(fn state -> length(Map.keys(state.players || %{})) end, :desc)
+  end
+
+  @doc """
+  Compte le nombre total de sessions actives.
+  """
+  def count_active_games do
+    Registry.count(SessionRegistry)
+  end
+
+  @doc """
+  Force l'arrêt d'une partie par l'administrateur.
+  """
+  def terminate_game_by_admin(code) when is_binary(code) do
+    case Registry.lookup(SessionRegistry, code) do
+      [{pid, _}] ->
+        DynamicSupervisor.terminate_child(SessionSupervisor, pid)
+
+      [] ->
+        {:error, :not_found}
+    end
+  end
+
+  @doc """
   Vérifie si une session de jeu est active pour le code donné.
   """
   def game_exists?(code) when is_binary(code) do

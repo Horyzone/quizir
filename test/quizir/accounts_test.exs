@@ -315,4 +315,93 @@ defmodule Quizir.AccountsTest do
       assert UserNotifier.format_error(err_perm) =~ "Permanent SMTP server rejection"
     end
   end
+
+  describe "admin functions" do
+    test "registered user has admin default false and cannot be overridden on registration" do
+      {:ok, user} =
+        Accounts.register_user(%{
+          username: unique_username(),
+          password: valid_password(),
+          admin: true
+        })
+
+      refute user.admin
+    end
+
+    test "generate_admin_session_token/1 and get_user_by_admin_session_token/1" do
+      admin = admin_user_fixture()
+      token = Accounts.generate_admin_session_token(admin)
+      assert is_binary(token)
+
+      found_admin = Accounts.get_user_by_admin_session_token(token)
+      assert found_admin.id == admin.id
+
+      # Normal session token query cannot verify admin session token
+      refute Accounts.get_user_by_session_token(token)
+
+      # Normal session token cannot verify as admin session
+      player_token = Accounts.generate_user_session_token(admin)
+      refute Accounts.get_user_by_admin_session_token(player_token)
+
+      # Deleting admin token
+      Accounts.delete_admin_session_token(token)
+      refute Accounts.get_user_by_admin_session_token(token)
+    end
+
+    test "update_user_admin/3 promotes and demotes users, but blocks self-demotion" do
+      admin = admin_user_fixture()
+      user = user_fixture()
+
+      refute user.admin
+
+      # Promote
+      assert {:ok, updated} = Accounts.update_user_admin(user, true, admin)
+      assert updated.admin
+
+      # Admin token works for newly promoted admin
+      token = Accounts.generate_admin_session_token(updated)
+      assert Accounts.get_user_by_admin_session_token(token)
+
+      # Self demotion blocked
+      assert {:error, :cannot_demote_self} = Accounts.update_user_admin(admin, false, admin)
+
+      # Demoting user deletes their admin session tokens
+      assert {:ok, demoted} = Accounts.update_user_admin(updated, false, admin)
+      refute demoted.admin
+      refute Accounts.get_user_by_admin_session_token(token)
+    end
+
+    test "delete_user_by_admin/2 deletes account, but blocks self-deletion" do
+      admin = admin_user_fixture()
+      user = user_fixture()
+
+      # Self deletion blocked
+      assert {:error, :cannot_delete_self} = Accounts.delete_user_by_admin(admin, admin)
+      assert Accounts.get_user(admin.id)
+
+      # Deleting other user
+      assert {:ok, _} = Accounts.delete_user_by_admin(user, admin)
+      refute Accounts.get_user(user.id)
+    end
+
+    test "list_users/1 with search, count_users/0 and count_admins/0" do
+      admin = admin_user_fixture(%{username: "boss_admin", email: "boss@example.com"})
+      player = user_fixture(%{username: "casual_player", email: "casual@example.com"})
+
+      assert Accounts.count_users() >= 2
+      assert Accounts.count_admins() >= 1
+
+      users = Accounts.list_users()
+      assert Enum.any?(users, &(&1.id == admin.id))
+      assert Enum.any?(users, &(&1.id == player.id))
+
+      search_boss = Accounts.list_users(search: "boss")
+      assert Enum.any?(search_boss, &(&1.id == admin.id))
+      refute Enum.any?(search_boss, &(&1.id == player.id))
+
+      search_email = Accounts.list_users(search: "casual@example.com")
+      assert Enum.any?(search_email, &(&1.id == player.id))
+      refute Enum.any?(search_email, &(&1.id == admin.id))
+    end
+  end
 end

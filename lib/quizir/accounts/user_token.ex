@@ -34,6 +34,28 @@ defmodule Quizir.Accounts.UserToken do
       select: user
   end
 
+  @admin_session_validity_in_days 14
+
+  @doc """
+  Generates an admin session token for the user.
+  """
+  def build_admin_session_token(user) do
+    token = :crypto.strong_rand_bytes(32)
+    {token, %__MODULE__{token: token, context: "admin_session", user_id: user.id}}
+  end
+
+  @doc """
+  Verifies an admin session token.
+  Returns query that finds the user only if they are an administrator.
+  """
+  def verify_admin_session_token_query(token) do
+    from token in by_token_and_context_query(token, "admin_session"),
+      join: user in assoc(token, :user),
+      where: user.admin == true,
+      where: token.inserted_at > ago(@admin_session_validity_in_days, "day"),
+      select: user
+  end
+
   @doc """
   Generates a reset password token for the user.
   """

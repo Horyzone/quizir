@@ -31,6 +31,10 @@ defmodule QuizirWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
+  attr :current_admin_user, :map,
+    default: nil,
+    doc: "the current authenticated admin user"
+
   attr :container_class, :string,
     default: "mx-auto max-w-4xl space-y-4",
     doc: "the class for the inner main container"
@@ -40,7 +44,7 @@ defmodule QuizirWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="navbar justify-between px-3 sm:px-6 lg:px-8 border-b border-base-200 bg-base-100/80 backdrop-blur sticky top-0 z-40">
-      <div class="flex items-center shrink-0">
+      <div class="flex items-center shrink-0 gap-2">
         <.link navigate={~p"/"} class="flex items-center gap-2 group shrink-0">
           <img
             src={~p"/images/logo.svg"}
@@ -51,6 +55,17 @@ defmodule QuizirWeb.Layouts do
           />
           <span class="text-xl font-black tracking-tight text-primary select-none shrink-0">Quizir</span>
         </.link>
+        <%= if @current_admin_user do %>
+          <.link
+            navigate={~p"/admin"}
+            id="header-admin-badge"
+            class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-error/10 border border-error/30 text-error hover:bg-error/20 text-xs font-bold transition-colors"
+            title={"Session admin active (#{@current_admin_user.username})"}
+          >
+            <.icon name="hero-shield-check" class="size-3.5" />
+            <span>Admin</span>
+          </.link>
+        <% end %>
       </div>
 
       <!-- Desktop Navigation (md and above) -->
@@ -74,6 +89,16 @@ defmodule QuizirWeb.Layouts do
           <.icon name="hero-play" class="size-4" /> Rejoindre
         </.link>
 
+        <%= if @current_admin_user do %>
+          <.link
+            navigate={~p"/admin"}
+            id="nav-admin-btn"
+            class="btn btn-error btn-outline btn-sm font-bold gap-1 shadow-xs"
+          >
+            <.icon name="hero-shield-check" class="size-4" /> Admin
+          </.link>
+        <% end %>
+
         <%= if @current_scope && @current_scope.user do %>
           <div class="dropdown dropdown-end">
             <div
@@ -94,6 +119,18 @@ defmodule QuizirWeb.Layouts do
                 Connecté en tant que
                 <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
               </li>
+              <%= if @current_scope.user.admin do %>
+                <li>
+                  <.link
+                    navigate={~p"/admin"}
+                    id="nav-admin-portal-link"
+                    class="text-xs font-bold text-error"
+                  >
+                    <.icon name="hero-shield-check" class="size-4 text-error" /> Administration
+                  </.link>
+                </li>
+                <div class="divider my-1"></div>
+              <% end %>
               <li>
                 <.link
                   navigate={~p"/my-quizzes"}
@@ -152,6 +189,17 @@ defmodule QuizirWeb.Layouts do
 
       <!-- Mobile Navigation (< md) -->
       <div class="flex md:hidden items-center gap-1.5 sm:gap-2">
+        <%= if @current_admin_user do %>
+          <.link
+            navigate={~p"/admin"}
+            class="btn btn-error btn-outline btn-xs font-bold gap-1 px-2"
+            title="Administration"
+          >
+            <.icon name="hero-shield-check" class="size-3.5" />
+            <span>Admin</span>
+          </.link>
+        <% end %>
+
         <.link
           navigate={~p"/join"}
           class="btn btn-primary btn-sm font-bold gap-1 px-2.5 shadow-xs"
@@ -182,6 +230,14 @@ defmodule QuizirWeb.Layouts do
                 Connecté en tant que
                 <span class="text-base-content block font-semibold truncate">{@current_scope.user.username}</span>
               </li>
+              <%= if @current_scope.user.admin do %>
+                <li>
+                  <.link navigate={~p"/admin"} class="text-xs font-bold text-error py-2">
+                    <.icon name="hero-shield-check" class="size-4 text-error" /> Administration
+                  </.link>
+                </li>
+                <div class="divider my-1"></div>
+              <% end %>
               <li>
                 <.link navigate={~p"/quizzes"} class="text-xs font-semibold py-2">
                   <.icon name="hero-sparkles" class="size-4 text-primary" /> Explorer les quiz

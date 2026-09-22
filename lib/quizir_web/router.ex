@@ -2,6 +2,7 @@ defmodule QuizirWeb.Router do
   use QuizirWeb, :router
 
   import QuizirWeb.UserAuth
+  import QuizirWeb.AdminAuth
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -11,6 +12,7 @@ defmodule QuizirWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
+    plug :fetch_current_admin_user
   end
 
   pipeline :api do
@@ -61,6 +63,30 @@ defmodule QuizirWeb.Router do
       live "/games", GameLive.Index, :index
       live "/join", GameLive.Join, :join
       live "/games/:code", GameLive.Play, :play
+    end
+  end
+
+  # Admin authentication routes
+  scope "/admin", QuizirWeb do
+    pipe_through [:browser, :redirect_if_admin_is_authenticated]
+
+    live_session :redirect_if_admin_is_authenticated,
+      on_mount: [{QuizirWeb.AdminAuth, :redirect_if_admin_is_authenticated}] do
+      live "/log_in", AdminLoginLive, :new
+    end
+
+    post "/log_in", AdminSessionController, :create
+  end
+
+  # Admin management routes requiring admin authentication
+  scope "/admin", QuizirWeb do
+    pipe_through [:browser, :require_authenticated_admin]
+
+    delete "/log_out", AdminSessionController, :delete
+
+    live_session :require_authenticated_admin,
+      on_mount: [{QuizirWeb.AdminAuth, :ensure_authenticated_admin}] do
+      live "/", Admin.DashboardLive, :index
     end
   end
 

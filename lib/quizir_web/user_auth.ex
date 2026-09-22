@@ -42,14 +42,22 @@ defmodule QuizirWeb.UserAuth do
     conn
   end
 
-  # This function renews the session ID and erases the whole
-  # session to avoid fixation attacks.
+  # This function renews the session ID and erases the user session
+  # while preserving the independent admin session token if present.
   defp renew_session(conn) do
+    admin_token = get_session(conn, :admin_user_token)
     delete_csrf_token()
 
-    conn
-    |> configure_session(renew: true)
-    |> clear_session()
+    conn =
+      conn
+      |> configure_session(renew: true)
+      |> clear_session()
+
+    if admin_token do
+      put_session(conn, :admin_user_token, admin_token)
+    else
+      conn
+    end
   end
 
   @doc """
@@ -142,21 +150,25 @@ defmodule QuizirWeb.UserAuth do
 
   def on_mount(:mount_current_user, _params, session, socket) do
     user = get_user_from_session(session)
+    admin_user = get_admin_user_from_session(session)
 
     {:cont,
      socket
      |> Phoenix.Component.assign_new(:current_user, fn -> user end)
-     |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)}
+     |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)
+     |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
     user = get_user_from_session(session)
+    admin_user = get_admin_user_from_session(session)
 
     if user do
       {:cont,
        socket
        |> Phoenix.Component.assign_new(:current_user, fn -> user end)
-       |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)}
+       |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(user) end)
+       |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
     else
       socket =
         socket
@@ -172,6 +184,7 @@ defmodule QuizirWeb.UserAuth do
 
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     user = get_user_from_session(session)
+    admin_user = get_admin_user_from_session(session)
 
     if user do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/quizzes")}
@@ -179,7 +192,8 @@ defmodule QuizirWeb.UserAuth do
       {:cont,
        socket
        |> Phoenix.Component.assign_new(:current_user, fn -> nil end)
-       |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(nil) end)}
+       |> Phoenix.Component.assign_new(:current_scope, fn -> Scope.for_user(nil) end)
+       |> Phoenix.Component.assign_new(:current_admin_user, fn -> admin_user end)}
     end
   end
 
@@ -187,6 +201,16 @@ defmodule QuizirWeb.UserAuth do
     case session["user_token"] do
       token when is_binary(token) ->
         Accounts.get_user_by_session_token(token)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp get_admin_user_from_session(session) do
+    case session["admin_user_token"] do
+      token when is_binary(token) ->
+        Accounts.get_user_by_admin_session_token(token)
 
       _ ->
         nil

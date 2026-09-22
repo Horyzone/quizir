@@ -219,7 +219,7 @@ defmodule QuizirWeb.GameLive.Index do
                 </span>
                 <span class="inline-flex items-center gap-1">
                   <.icon name="hero-question-mark-circle" class="size-4" />
-                  {length(game.questions || [])} questions
+                  {if is_list(game.questions), do: length(game.questions), else: 0} questions
                 </span>
               </div>
 

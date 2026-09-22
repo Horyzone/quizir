@@ -103,7 +103,12 @@ defmodule Quizir.Games.Session do
         do: to_string(raw_visibility),
         else: "public"
 
-    questions = quiz.questions || []
+    questions =
+      if is_list(quiz.questions) do
+        quiz.questions
+      else
+        []
+      end
 
     state = %Session{
       code: code,

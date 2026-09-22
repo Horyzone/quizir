@@ -9,11 +9,21 @@ defmodule Quizir.Accounts.User do
     field :current_password, :string, virtual: true, redact: true
     field :password_confirmation, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
+    field :admin, :boolean, default: false
 
     has_many :quizzes, Quizir.Quizzes.Quiz, on_delete: :nilify_all
     has_many :tokens, Quizir.Accounts.UserToken, on_delete: :delete_all
 
     timestamps(type: :utc_datetime)
+  end
+
+  @doc """
+  A user changeset for updating admin status.
+  """
+  def admin_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:admin])
+    |> validate_required([:admin])
   end
 
   @doc """

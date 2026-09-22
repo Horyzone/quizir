@@ -24,4 +24,15 @@ defmodule Quizir.AccountsFixtures do
 
     user
   end
+
+  def admin_user_fixture(attrs \\ %{}) do
+    user = user_fixture(attrs)
+
+    {:ok, admin_user} =
+      user
+      |> Quizir.Accounts.User.admin_changeset(%{admin: true})
+      |> Quizir.Repo.update()
+
+    admin_user
+  end
 end

@@ -41,6 +41,53 @@ defmodule Quizir.Quizzes do
   end
 
   @doc """
+  Returns the list of all quizzes for the admin panel with search capability.
+  """
+  def list_quizzes_for_admin(opts \\ []) do
+    search = Keyword.get(opts, :search, "") |> to_string() |> String.trim()
+
+    query =
+      from q in Quiz,
+        order_by: [desc: q.inserted_at, desc: q.id],
+        preload: [:user, :questions]
+
+    query =
+      if search != "" do
+        pattern = "%#{search}%"
+        from q in query, where: ilike(q.title, ^pattern) or ilike(q.description, ^pattern)
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Counts total quizzes in the system.
+  """
+  def count_quizzes do
+    Repo.aggregate(Quiz, :count, :id) || 0
+  end
+
+  @doc """
+  Counts total public quizzes.
+  """
+  def count_public_quizzes do
+    from(q in Quiz, where: q.visibility == "public")
+    |> Repo.aggregate(:count, :id)
+    |> Kernel.||(0)
+  end
+
+  @doc """
+  Counts total private quizzes.
+  """
+  def count_private_quizzes do
+    from(q in Quiz, where: q.visibility == "private")
+    |> Repo.aggregate(:count, :id)
+    |> Kernel.||(0)
+  end
+
+  @doc """
   Returns the list of quizzes created by a specific user with an optional visibility filter.
   Allowed filter values: "all", "public", "private" (or atoms :all, :public, :private).
   """
