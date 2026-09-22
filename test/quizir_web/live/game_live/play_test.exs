@@ -307,5 +307,40 @@ defmodule QuizirWeb.GameLive.PlayTest do
       assert map_size(state.players) == 0
       refute has_element?(host_view, "#player-badge-#{player.id}")
     end
+
+    test "greys out answer buttons and displays notice for host who has not joined as a player",
+         %{
+           conn: conn
+         } do
+      game = create_game_with_questions()
+
+      # 1. Host connects (without joining as player)
+      {:ok, host_view, _} = live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+
+      # 2. Player connects and joins
+      {:ok, player} = Games.join_game(game.code, "JoueurTest")
+
+      {:ok, player_view, _} =
+        live(conn, ~p"/games/#{game.code}?player_id=#{player.id}&name=JoueurTest")
+
+      # 3. Host starts game
+      host_view
+      |> element("#host-start-game-btn")
+      |> render_click()
+
+      # 4. Host sees warning notice and greyed out buttons
+      assert has_element?(
+               host_view,
+               "#host-non-player-notice",
+               "Vous ne pouvez pas répondre aux questions car vous n'êtes pas un joueur"
+             )
+
+      assert has_element?(host_view, "button[id^='answer-option-btn-'][disabled]")
+      assert has_element?(host_view, "button[id^='answer-option-btn-'].grayscale")
+
+      # 5. Regular player does NOT see warning notice and has active buttons
+      refute has_element?(player_view, "#host-non-player-notice")
+      assert has_element?(player_view, "button[id^='answer-option-btn-']:not([disabled])")
+    end
   end
 end

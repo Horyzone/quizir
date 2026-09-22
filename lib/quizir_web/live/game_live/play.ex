@@ -641,15 +641,30 @@ defmodule QuizirWeb.GameLive.Play do
                 <% end %>
               </div>
 
+              <%= if @is_host and @current_player == nil do %>
+                <div
+                  id="host-non-player-notice"
+                  class="alert alert-warning text-sm font-semibold text-center justify-center py-3 px-4 shadow-sm border border-warning/30 flex items-center gap-2"
+                >
+                  <.icon name="hero-information-circle" class="size-5 shrink-0" />
+                  <span>Vous ne pouvez pas répondre aux questions car vous n'êtes pas un joueur</span>
+                </div>
+              <% end %>
+
               <!-- Answer Options Grid -->
+              <% host_not_player? = @is_host and @current_player == nil %>
               <div id="answer-options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <%= for {option, idx} <- Enum.with_index(current_q.answer_options) do %>
                   <% color_classes =
-                    case rem(idx, 4) do
-                      0 -> "bg-rose-500 hover:bg-rose-600 text-white border-rose-600"
-                      1 -> "bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
-                      2 -> "bg-amber-500 hover:bg-amber-600 text-white border-amber-600"
-                      3 -> "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600"
+                    if host_not_player? do
+                      "bg-base-200 text-base-content/40 border-base-300 cursor-not-allowed opacity-60 grayscale"
+                    else
+                      case rem(idx, 4) do
+                        0 -> "bg-rose-500 hover:bg-rose-600 text-white border-rose-600"
+                        1 -> "bg-blue-500 hover:bg-blue-600 text-white border-blue-600"
+                        2 -> "bg-amber-500 hover:bg-amber-600 text-white border-amber-600"
+                        3 -> "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-600"
+                      end
                     end %>
 
                   <button
@@ -659,7 +674,8 @@ defmodule QuizirWeb.GameLive.Play do
                     phx-value-option_id={option.id}
                     disabled={@selected_option_id != nil or not is_map(@current_player)}
                     class={[
-                      "p-6 rounded-2xl border-2 font-bold text-lg text-left transition transform active:scale-95 shadow-md flex items-center justify-between",
+                      "p-6 rounded-2xl border-2 font-bold text-lg text-left transition shadow-md flex items-center justify-between",
+                      not host_not_player? && "transform active:scale-95",
                       color_classes,
                       @selected_option_id == option.id &&
                         "ring-4 ring-offset-2 ring-white scale-[1.02]",
@@ -668,7 +684,13 @@ defmodule QuizirWeb.GameLive.Play do
                     ]}
                   >
                     <span>{option.body}</span>
-                    <span class="size-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm shrink-0">
+                    <span class={[
+                      "size-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                      if(host_not_player?,
+                        do: "bg-base-300 text-base-content/40",
+                        else: "bg-white/20 text-white"
+                      )
+                    ]}>
                       {["A", "B", "C", "D"] |> Enum.at(rem(idx, 4))}
                     </span>
                   </button>
