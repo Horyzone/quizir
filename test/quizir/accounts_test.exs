@@ -387,13 +387,18 @@ defmodule Quizir.AccountsTest do
     test "list_users/1 with search, count_users/0 and count_admins/0" do
       admin = admin_user_fixture(%{username: "boss_admin", email: "boss@example.com"})
       player = user_fixture(%{username: "casual_player", email: "casual@example.com"})
+      guest_acct = user_fixture(%{username: "no_email_player", email: nil})
 
-      assert Accounts.count_users() >= 2
+      assert Accounts.count_users() >= 3
       assert Accounts.count_admins() >= 1
+      assert Accounts.count_players() >= 2
+      assert Accounts.count_users_with_email() >= 2
+      assert Accounts.count_users_without_email() >= 1
 
       users = Accounts.list_users()
       assert Enum.any?(users, &(&1.id == admin.id))
       assert Enum.any?(users, &(&1.id == player.id))
+      assert Enum.any?(users, &(&1.id == guest_acct.id))
 
       search_boss = Accounts.list_users(search: "boss")
       assert Enum.any?(search_boss, &(&1.id == admin.id))

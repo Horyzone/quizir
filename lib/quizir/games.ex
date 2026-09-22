@@ -7,6 +7,9 @@ defmodule Quizir.Games do
   alias Quizir.Games.Session
   alias Quizir.Games.SessionRegistry
   alias Quizir.Games.SessionSupervisor
+  alias Quizir.Games.GameRecord
+  alias Quizir.Repo
+  import Ecto.Query
 
   @alphabet ~c"23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
@@ -87,6 +90,76 @@ defmodule Quizir.Games do
   end
 
   @doc """
+  Retourne les statistiques des parties actives en mémoire.
+  """
+  def get_active_games_stats do
+    games = list_all_active_games()
+
+    lobby = Enum.count(games, &(&1.status == :lobby))
+    in_game = Enum.count(games, &(&1.status in [:question, :reveal, :leaderboard]))
+    finished = Enum.count(games, &(&1.status == :finished))
+    total_players = Enum.sum(Enum.map(games, &map_size(&1.players || %{})))
+
+    %{
+      total: length(games),
+      lobby: lobby,
+      in_game: in_game,
+      finished: finished,
+      total_players: total_players
+    }
+  end
+
+  @doc """
+  Crée un enregistrement d'une partie réalisée.
+  """
+  def create_game_record(attrs \\ %{}) do
+    %GameRecord{}
+    |> GameRecord.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Compte le nombre total de parties réalisées/terminées.
+  """
+  def count_completed_games do
+    from(g in GameRecord, where: g.status == "completed")
+    |> Repo.aggregate(:count, :id) || 0
+  end
+
+  @doc """
+  Compte le nombre total de participants ayant joué dans les parties réalisées.
+  """
+  def count_total_participants do
+    from(g in GameRecord, where: g.status == "completed")
+    |> Repo.aggregate(:sum, :players_count) || 0
+  end
+
+  @doc """
+  Calcule la moyenne de joueurs par partie réalisée.
+  """
+  def avg_players_per_completed_game do
+    completed = count_completed_games()
+
+    if completed > 0 do
+      Float.round(count_total_participants() / completed, 1)
+    else
+      0.0
+    end
+  end
+
+  @doc """
+  Liste les N dernières parties réalisées avec associations.
+  """
+  def list_recent_completed_games(limit \\ 15) do
+    from(g in GameRecord,
+      order_by: [desc: g.finished_at, desc: g.inserted_at],
+      limit: ^limit,
+      preload: [:quiz, :host_user]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Force l'arrêt d'une partie par l'administrateur.
   """
   def terminate_game_by_admin(code) when is_binary(code) do
@@ -104,7 +177,7 @@ defmodule Quizir.Games do
   """
   def game_exists?(code) when is_binary(code) do
     case Registry.lookup(SessionRegistry, code) do
-      [{_pid, _}] -> true
+      [{pid, _}] -> Process.alive?(pid)
       [] -> false
     end
   end

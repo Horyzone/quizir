@@ -26,7 +26,8 @@ defmodule Quizir.Games.Session do
     host_pids: %{},
     host_registered?: false,
     player_pids: %{},
-    monitor_refs: %{}
+    monitor_refs: %{},
+    started_at: nil
   ]
 
   # --- Client API ---
@@ -126,7 +127,8 @@ defmodule Quizir.Games.Session do
       host_pids: %{},
       host_registered?: false,
       player_pids: %{},
-      monitor_refs: %{}
+      monitor_refs: %{},
+      started_at: DateTime.utc_now() |> DateTime.truncate(:second)
     }
 
     {:ok, state}
@@ -385,6 +387,7 @@ defmodule Quizir.Games.Session do
             new_state = %{state | status: :finished}
             leaderboard = build_leaderboard(state.players)
             broadcast(new_state, {:game_finished, leaderboard})
+            record_completed_game(new_state, leaderboard)
             {:reply, :ok, new_state}
           end
 
@@ -641,5 +644,42 @@ defmodule Quizir.Games.Session do
 
   defp generate_player_id do
     "ply_" <> (:crypto.strong_rand_bytes(6) |> Base.url_encode64(padding: false))
+  end
+
+  defp record_completed_game(state, leaderboard) do
+    winner = List.first(leaderboard)
+    winner_name = winner && winner.name
+    winner_score = (winner && winner.score) || 0
+    players_count = map_size(state.players || %{})
+
+    host_user_id =
+      cond do
+        state.quiz && Ecto.assoc_loaded?(state.quiz.user) && state.quiz.user ->
+          state.quiz.user.id
+
+        state.quiz && Map.get(state.quiz, :user_id) ->
+          state.quiz.user_id
+
+        true ->
+          nil
+      end
+
+    attrs = %{
+      code: state.code,
+      quiz_id: state.quiz && state.quiz.id,
+      quiz_title: (state.quiz && state.quiz.title) || "Quiz sans titre",
+      host_user_id: host_user_id,
+      visibility: to_string(state.visibility),
+      players_count: players_count,
+      winner_name: winner_name,
+      winner_score: winner_score,
+      status: "completed",
+      started_at: Map.get(state, :started_at),
+      finished_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+
+    Quizir.Games.create_game_record(attrs)
+  rescue
+    _ -> :ok
   end
 end

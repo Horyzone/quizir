@@ -290,6 +290,31 @@ defmodule Quizir.Accounts do
   end
 
   @doc """
+  Counts total regular player users.
+  """
+  def count_players do
+    from(u in User, where: u.admin == false)
+    |> Repo.aggregate(:count, :id)
+    |> Kernel.||(0)
+  end
+
+  @doc """
+  Counts users who have registered an email address.
+  """
+  def count_users_with_email do
+    from(u in User, where: not is_nil(u.email) and u.email != "")
+    |> Repo.aggregate(:count, :id)
+    |> Kernel.||(0)
+  end
+
+  @doc """
+  Counts users without an email address (username only).
+  """
+  def count_users_without_email do
+    count_users() - count_users_with_email()
+  end
+
+  @doc """
   Updates a user's admin status.
   Prevents removing admin status from oneself.
   """

@@ -100,5 +100,70 @@ defmodule Quizir.GamesTest do
       # Non-existent game termination returns :not_found
       assert {:error, :not_found} = Games.terminate_game_by_admin("NONEXISTENT")
     end
+
+    test "get_active_games_stats/0 returns breakdown of live games" do
+      quiz = create_persisted_quiz()
+      {:ok, %{code: code}} = Games.create_game(quiz)
+      {:ok, _player} = Games.join_game(code, "Alice")
+
+      stats = Games.get_active_games_stats()
+      assert stats.total >= 1
+      assert stats.lobby >= 1
+      assert stats.total_players >= 1
+    end
+
+    test "create_game_record/1, count_completed_games/0, count_total_participants/0, avg_players_per_completed_game/0, list_recent_completed_games/1" do
+      quiz = create_persisted_quiz()
+
+      assert {:ok, record} =
+               Games.create_game_record(%{
+                 code: "REC001",
+                 quiz_id: quiz.id,
+                 quiz_title: quiz.title,
+                 visibility: "public",
+                 players_count: 4,
+                 winner_name: "Gagnant",
+                 winner_score: 300,
+                 status: "completed",
+                 finished_at: DateTime.utc_now() |> DateTime.truncate(:second)
+               })
+
+      assert record.code == "REC001"
+      assert Games.count_completed_games() >= 1
+      assert Games.count_total_participants() >= 4
+      assert Games.avg_players_per_completed_game() > 0.0
+
+      recent = Games.list_recent_completed_games(10)
+      assert Enum.any?(recent, &(&1.id == record.id))
+    end
+
+    test "session records completed game into database on :finished" do
+      quiz = create_persisted_quiz()
+      {:ok, %{code: code, host_token: host_token}} = Games.create_game(quiz)
+      {:ok, player} = Games.join_game(code, "GagnantTest")
+      assert :ok = Games.start_game(code, host_token)
+
+      option_id = hd(hd(quiz.questions).answer_options).id
+      assert {:ok, _} = Games.submit_answer(code, player.id, option_id)
+
+      # After answer submission by the only player, session auto-finishes question -> :reveal
+      assert {:ok, state} = Games.get_game_state(code)
+      assert state.status == :reveal
+
+      # Reveal -> Leaderboard
+      assert :ok = Games.next_step(code, host_token)
+      # Leaderboard -> :finished (single question quiz)
+      assert :ok = Games.next_step(code, host_token)
+
+      assert {:ok, state} = Games.get_game_state(code)
+      assert state.status == :finished
+
+      # Verify game record created
+      recent = Games.list_recent_completed_games(10)
+      matching_record = Enum.find(recent, &(&1.code == code))
+      assert matching_record != nil
+      assert matching_record.winner_name == "GagnantTest"
+      assert matching_record.players_count == 1
+    end
   end
 end

@@ -88,6 +88,33 @@ defmodule Quizir.Quizzes do
   end
 
   @doc """
+  Counts total questions in the system.
+  """
+  def count_questions do
+    Repo.aggregate(Quizir.Quizzes.Question, :count, :id) || 0
+  end
+
+  @doc """
+  Counts total answer options in the system.
+  """
+  def count_answer_options do
+    Repo.aggregate(Quizir.Quizzes.AnswerOption, :count, :id) || 0
+  end
+
+  @doc """
+  Calculates the average number of questions per quiz.
+  """
+  def avg_questions_per_quiz do
+    quizzes = count_quizzes()
+
+    if quizzes > 0 do
+      Float.round(count_questions() / quizzes, 1)
+    else
+      0.0
+    end
+  end
+
+  @doc """
   Returns the list of quizzes created by a specific user with an optional visibility filter.
   Allowed filter values: "all", "public", "private" (or atoms :all, :public, :private).
   """

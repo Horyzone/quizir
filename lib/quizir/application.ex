@@ -12,6 +12,7 @@ defmodule Quizir.Application do
       Quizir.Repo,
       {DNSCluster, query: Application.get_env(:quizir, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Quizir.PubSub},
+      QuizirWeb.Presence,
       {Registry, keys: :unique, name: Quizir.Games.SessionRegistry},
       {DynamicSupervisor, strategy: :one_for_one, name: Quizir.Games.SessionSupervisor},
       # Start a worker by calling: Quizir.Worker.start_link(arg)

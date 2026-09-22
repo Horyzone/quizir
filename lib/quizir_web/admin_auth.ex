@@ -114,6 +114,7 @@ defmodule QuizirWeb.AdminAuth do
 
     if admin_user do
       player_user = get_player_user_from_session(session)
+      QuizirWeb.UserTracker.track_socket(socket, player_user || admin_user)
 
       {:cont,
        socket
@@ -142,6 +143,7 @@ defmodule QuizirWeb.AdminAuth do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/admin")}
     else
       player_user = get_player_user_from_session(session)
+      QuizirWeb.UserTracker.track_socket(socket, player_user)
 
       {:cont,
        socket

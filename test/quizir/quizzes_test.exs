@@ -270,6 +270,18 @@ defmodule Quizir.QuizzesTest do
       assert Quizzes.count_private_quizzes() >= 1
     end
 
+    test "count_questions/0, count_answer_options/0, avg_questions_per_quiz/0" do
+      initial_questions = Quizzes.count_questions()
+      initial_answers = Quizzes.count_answer_options()
+
+      _question = question_fixture()
+      _answer = answer_option_fixture()
+
+      assert Quizzes.count_questions() >= initial_questions + 1
+      assert Quizzes.count_answer_options() >= initial_answers + 1
+      assert is_float(Quizzes.avg_questions_per_quiz())
+    end
+
     test "list_quizzes_for_admin/1 with and without search" do
       user = user_fixture(%{username: "quizcreator"})
       q1 = quiz_fixture(%{title: "Cinéma Français", description: "Le 7eme art", user: user})

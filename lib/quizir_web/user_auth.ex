@@ -151,6 +151,7 @@ defmodule QuizirWeb.UserAuth do
   def on_mount(:mount_current_user, _params, session, socket) do
     user = get_user_from_session(session)
     admin_user = get_admin_user_from_session(session)
+    QuizirWeb.UserTracker.track_socket(socket, user)
 
     {:cont,
      socket
@@ -164,6 +165,8 @@ defmodule QuizirWeb.UserAuth do
     admin_user = get_admin_user_from_session(session)
 
     if user do
+      QuizirWeb.UserTracker.track_socket(socket, user)
+
       {:cont,
        socket
        |> Phoenix.Component.assign_new(:current_user, fn -> user end)
@@ -189,6 +192,8 @@ defmodule QuizirWeb.UserAuth do
     if user do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/quizzes")}
     else
+      QuizirWeb.UserTracker.track_socket(socket, nil)
+
       {:cont,
        socket
        |> Phoenix.Component.assign_new(:current_user, fn -> nil end)

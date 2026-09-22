@@ -28,7 +28,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       assert {:error, {:redirect, %{to: "/admin/log_in"}}} = live(conn, ~p"/admin")
     end
 
-    test "mounts dashboard successfully when authenticated as admin", %{
+    test "mounts dashboard successfully with stats view when authenticated as admin", %{
       conn: conn,
       admin: admin
     } do
@@ -36,15 +36,57 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       {:ok, view, _html} = live(conn, ~p"/admin")
 
       assert has_element?(view, "#admin-dashboard-title")
+      assert has_element?(view, "#tab-stats-btn")
       assert has_element?(view, "#tab-users-btn")
       assert has_element?(view, "#tab-quizzes-btn")
       assert has_element?(view, "#tab-games-btn")
-      assert has_element?(view, "#admin-users-table")
+      assert has_element?(view, "#admin-stats-view")
+    end
+  end
+
+  describe "Detailed Statistics View" do
+    test "displays all metrics cards, presence stats, and completed games table", %{
+      conn: conn,
+      admin: admin,
+      quiz: quiz
+    } do
+      # Create a completed game record
+      {:ok, _record} =
+        Games.create_game_record(%{
+          code: "WIN999",
+          quiz_id: quiz.id,
+          quiz_title: quiz.title,
+          visibility: "public",
+          players_count: 5,
+          winner_name: "Champion",
+          winner_score: 450,
+          status: "completed",
+          finished_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        })
+
+      conn = log_in_admin(conn, admin)
+      {:ok, view, _html} = live(conn, ~p"/admin")
+
+      assert has_element?(view, "#admin-stats-view")
+      assert has_element?(view, "#admin-kpi-cards")
+      assert has_element?(view, "#stat-connected-total")
+      assert has_element?(view, "#stat-active-games")
+      assert has_element?(view, "#stat-completed-games")
+      assert has_element?(view, "#stat-quiz-total")
+      assert has_element?(view, "#stat-user-total")
+      assert has_element?(view, "#admin-completed-games-table")
+
+      # Click refresh stats
+      view
+      |> element("#stats-refresh-btn")
+      |> render_click()
+
+      assert has_element?(view, "#admin-stats-view")
     end
   end
 
   describe "Tab Switching" do
-    test "can switch between Users, Quizzes, and Games tabs", %{
+    test "can switch between Stats, Users, Quizzes, and Games tabs", %{
       conn: conn,
       admin: admin,
       quiz: quiz
@@ -52,10 +94,19 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       conn = log_in_admin(conn, admin)
       {:ok, view, _html} = live(conn, ~p"/admin")
 
-      # Users tab is active by default
-      assert has_element?(view, "#admin-users-table")
+      # Stats tab is active by default
+      assert has_element?(view, "#admin-stats-view")
+      refute has_element?(view, "#admin-users-table")
       refute has_element?(view, "#admin-quizzes-table")
       refute has_element?(view, "#admin-games-table")
+
+      # Switch to Users tab
+      view
+      |> element("#tab-users-btn")
+      |> render_click()
+
+      assert has_element?(view, "#admin-users-table")
+      refute has_element?(view, "#admin-stats-view")
 
       # Switch to Quizzes tab
       view
@@ -74,12 +125,12 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       assert has_element?(view, "#admin-games-table")
       refute has_element?(view, "#admin-quizzes-table")
 
-      # Switch back to Users tab
+      # Switch back to Stats tab
       view
-      |> element("#tab-users-btn")
+      |> element("#tab-stats-btn")
       |> render_click()
 
-      assert has_element?(view, "#admin-users-table")
+      assert has_element?(view, "#admin-stats-view")
     end
   end
 
@@ -90,7 +141,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       player: player
     } do
       conn = log_in_admin(conn, admin)
-      {:ok, view, _html} = live(conn, ~p"/admin")
+      {:ok, view, _html} = live(conn, ~p"/admin?tab=users")
 
       assert has_element?(view, "#user-row-#{player.id}")
       assert has_element?(view, "#user-row-#{admin.id}")
@@ -118,7 +169,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       player: player
     } do
       conn = log_in_admin(conn, admin)
-      {:ok, view, _html} = live(conn, ~p"/admin")
+      {:ok, view, _html} = live(conn, ~p"/admin?tab=users")
 
       refute player.admin
 
@@ -144,7 +195,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       admin: admin
     } do
       conn = log_in_admin(conn, admin)
-      {:ok, view, _html} = live(conn, ~p"/admin")
+      {:ok, view, _html} = live(conn, ~p"/admin?tab=users")
 
       # Action buttons should not exist for oneself in the UI
       refute has_element?(view, "#toggle-admin-btn-#{admin.id}")
@@ -164,7 +215,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       player: player
     } do
       conn = log_in_admin(conn, admin)
-      {:ok, view, _html} = live(conn, ~p"/admin")
+      {:ok, view, _html} = live(conn, ~p"/admin?tab=users")
 
       assert has_element?(view, "#delete-user-btn-#{player.id}")
 
@@ -186,12 +237,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       other_quiz = quiz_fixture(%{title: "Autre Quiz Special", visibility: "public"})
 
       conn = log_in_admin(conn, admin)
-      {:ok, view, _html} = live(conn, ~p"/admin")
-
-      # Switch to Quizzes tab
-      view
-      |> element("#tab-quizzes-btn")
-      |> render_click()
+      {:ok, view, _html} = live(conn, ~p"/admin?tab=quizzes")
 
       assert has_element?(view, "#quiz-row-#{quiz.id}")
       assert has_element?(view, "#quiz-row-#{other_quiz.id}")
@@ -232,12 +278,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       assert Games.game_exists?(code)
 
       conn = log_in_admin(conn, admin)
-      {:ok, view, _html} = live(conn, ~p"/admin")
-
-      # Switch to Games tab
-      view
-      |> element("#tab-games-btn")
-      |> render_click()
+      {:ok, view, _html} = live(conn, ~p"/admin?tab=games")
 
       assert has_element?(view, "#game-row-#{code}")
       assert has_element?(view, "#stop-game-btn-#{code}")
