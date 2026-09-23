@@ -2,9 +2,9 @@ name: CI - Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
@@ -44,6 +44,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up environment file
+        run: cp .env.example .env
 
       - name: Set up Elixir and Erlang/OTP
         uses: erlef/setup-beam@v1

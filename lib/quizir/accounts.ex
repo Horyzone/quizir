@@ -48,12 +48,32 @@ defmodule Quizir.Accounts do
   def get_user_by_email(_), do: nil
 
   @doc """
-  Gets a user by username and authenticates with password.
+  Gets a user by username or email (case-insensitive).
+  """
+  def get_user_by_email_or_username(identifier) when is_binary(identifier) do
+    clean_identifier = String.trim(identifier)
+
+    if clean_identifier != "" do
+      from(u in User,
+        where:
+          fragment("lower(?) = lower(?)", u.username, ^clean_identifier) or
+            fragment("lower(?) = lower(?)", u.email, ^clean_identifier)
+      )
+      |> Repo.one()
+    else
+      nil
+    end
+  end
+
+  def get_user_by_email_or_username(_), do: nil
+
+  @doc """
+  Gets a user by username or email and authenticates with password.
   Returns `{:ok, user}` or `{:error, :unauthorized}`.
   """
-  def get_user_by_username_and_password(username, password)
-      when is_binary(username) and is_binary(password) do
-    user = get_user_by_username(username)
+  def get_user_by_username_and_password(identifier, password)
+      when is_binary(identifier) and is_binary(password) do
+    user = get_user_by_email_or_username(identifier)
 
     if User.valid_password?(user, password) do
       {:ok, user}
@@ -249,6 +269,91 @@ defmodule Quizir.Accounts do
   def change_user_password_update(%User{} = user, attrs \\ %{}) do
     User.password_update_changeset(user, attrs, hash_password: false)
   end
+
+  ## Two-Factor Authentication (TOTP)
+
+  @doc """
+  Generates a raw binary TOTP secret.
+  """
+  def generate_totp_secret do
+    NimbleTOTP.secret()
+  end
+
+  @doc """
+  Generates an otpauth:// URI for the user and secret.
+  """
+  def totp_uri(%User{} = user, secret) when is_binary(secret) do
+    NimbleTOTP.otpauth_uri("Quizir:#{user.username}", secret, issuer: "Quizir")
+  end
+
+  @doc """
+  Formats a raw binary TOTP secret to a Base32 string formatted in groups of 4 characters.
+  """
+  def totp_formatted_secret(secret) when is_binary(secret) do
+    secret
+    |> Base.encode32(padding: false)
+    |> String.graphemes()
+    |> Enum.chunk_every(4)
+    |> Enum.map_join(" ", &Enum.join/1)
+  end
+
+  @doc """
+  Generates an SVG string representation of a QR Code for an otpauth URI.
+  """
+  def totp_qr_svg(uri) when is_binary(uri) do
+    uri
+    |> EQRCode.encode()
+    |> EQRCode.svg(width: 220, viewbox: true)
+  end
+
+  @doc """
+  Validates a TOTP code against a raw binary secret.
+  """
+  def valid_totp_code?(secret, code) when is_binary(secret) and is_binary(code) do
+    clean_code = String.replace(code, ~r/\s+/, "")
+    NimbleTOTP.valid?(secret, clean_code)
+  end
+
+  def valid_totp_code?(_, _), do: false
+
+  @doc """
+  Validates a TOTP code for a user if TOTP is enabled on their account.
+  """
+  def validate_user_totp(%User{totp_enabled: true, totp_secret: secret}, code)
+      when is_binary(secret) and is_binary(code) do
+    valid_totp_code?(secret, code)
+  end
+
+  def validate_user_totp(_, _), do: false
+
+  @doc """
+  Enables 2FA on a user account after verifying the provided TOTP code.
+  """
+  def enable_user_totp(%User{} = user, secret, code)
+      when is_binary(secret) and is_binary(code) do
+    if valid_totp_code?(secret, code) do
+      user
+      |> Ecto.Changeset.change(%{totp_enabled: true, totp_secret: secret})
+      |> Repo.update()
+    else
+      {:error, :invalid_totp_code}
+    end
+  end
+
+  @doc """
+  Disables 2FA on a user account after verifying the user's current password.
+  """
+  def disable_user_totp(%User{} = user, current_password) when is_binary(current_password) do
+    if User.valid_password?(user, current_password) do
+      user
+      |> Ecto.Changeset.change(%{totp_enabled: false, totp_secret: nil})
+      |> Repo.update()
+    else
+      {:error, :invalid_password}
+    end
+  end
+
+  def disable_user_totp(_, _), do: {:error, :invalid_password}
 
   ## Admin Session & Management
 

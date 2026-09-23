@@ -28,11 +28,13 @@ defmodule QuizirWeb.Router do
       on_mount: [{QuizirWeb.UserAuth, :redirect_if_user_is_authenticated}] do
       live "/users/register", UserRegistrationLive, :new
       live "/users/log_in", UserLoginLive, :new
+      live "/users/two_factor", UserTwoFactorLive, :new
       live "/users/reset_password", UserForgotPasswordLive, :new
       live "/users/reset_password/:token", UserResetPasswordLive, :edit
     end
 
     post "/users/log_in", UserSessionController, :create
+    post "/users/two_factor", UserSessionController, :create_two_factor
   end
 
   # Routes requiring authentication
@@ -64,6 +66,12 @@ defmodule QuizirWeb.Router do
       live "/games", GameLive.Index, :index
       live "/join", GameLive.Join, :join
       live "/games/:code", GameLive.Play, :play
+
+      # Informations et documents légaux
+      live "/mentions-legales", LegalLive.Show, :mentions_legales
+      live "/cgu", LegalLive.Show, :cgu
+      live "/rgpd", LegalLive.Show, :rgpd
+      live "/legal/:page", LegalLive.Show, :show
     end
   end
 
@@ -74,9 +82,11 @@ defmodule QuizirWeb.Router do
     live_session :redirect_if_admin_is_authenticated,
       on_mount: [{QuizirWeb.AdminAuth, :redirect_if_admin_is_authenticated}] do
       live "/log_in", AdminLoginLive, :new
+      live "/two_factor", AdminTwoFactorLive, :new
     end
 
     post "/log_in", AdminSessionController, :create
+    post "/two_factor", AdminSessionController, :create_two_factor
   end
 
   # Admin management routes requiring admin authentication

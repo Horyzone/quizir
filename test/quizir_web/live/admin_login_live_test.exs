@@ -112,5 +112,96 @@ defmodule QuizirWeb.AdminLoginLiveTest do
       # Independent session: player session remains untouched
       assert get_session(conn, :user_token) == player_token
     end
+
+    test "logs admin in with email address", %{conn: conn} do
+      admin = admin_user_fixture(%{email: "admin_login@example.com"})
+
+      conn =
+        post(conn, ~p"/admin/log_in", %{
+          "admin" => %{"username" => admin.email, "password" => valid_password()}
+        })
+
+      assert redirected_to(conn) == ~p"/admin"
+      assert get_session(conn, :admin_user_token)
+    end
+
+    test "redirects admin to 2FA verification when 2FA is enabled", %{conn: conn} do
+      secret = NimbleTOTP.secret()
+      admin = admin_user_fixture()
+
+      {:ok, admin} =
+        Quizir.Repo.update(
+          Ecto.Changeset.change(admin, %{totp_enabled: true, totp_secret: secret})
+        )
+
+      conn =
+        post(conn, ~p"/admin/log_in", %{
+          "admin" => %{"username" => admin.username, "password" => valid_password()}
+        })
+
+      assert redirected_to(conn) == ~p"/admin/two_factor"
+      assert get_session(conn, :admin_totp_auth_user_id) == admin.id
+
+      # Render 2FA LiveView
+      {:ok, view, _html} = live(conn, ~p"/admin/two_factor")
+      assert has_element?(view, "#admin_two_factor_form")
+      assert has_element?(view, "#admin_totp_code")
+      assert has_element?(view, "#admin-totp-submit-btn")
+    end
+
+    test "completes admin login with valid 2FA code", %{conn: conn} do
+      secret = NimbleTOTP.secret()
+      admin = admin_user_fixture()
+
+      {:ok, admin} =
+        Quizir.Repo.update(
+          Ecto.Changeset.change(admin, %{totp_enabled: true, totp_secret: secret})
+        )
+
+      conn =
+        post(conn, ~p"/admin/log_in", %{
+          "admin" => %{"username" => admin.username, "password" => valid_password()}
+        })
+
+      assert redirected_to(conn) == ~p"/admin/two_factor"
+
+      valid_code = NimbleTOTP.verification_code(secret)
+
+      conn =
+        post(conn, ~p"/admin/two_factor", %{
+          "totp" => %{"code" => valid_code}
+        })
+
+      assert redirected_to(conn) == ~p"/admin"
+      assert get_session(conn, :admin_user_token)
+      assert get_session(conn, :admin_totp_auth_user_id) == nil
+    end
+
+    test "rejects invalid 2FA code for admin", %{conn: conn} do
+      secret = NimbleTOTP.secret()
+      admin = admin_user_fixture()
+
+      {:ok, admin} =
+        Quizir.Repo.update(
+          Ecto.Changeset.change(admin, %{totp_enabled: true, totp_secret: secret})
+        )
+
+      conn =
+        post(conn, ~p"/admin/log_in", %{
+          "admin" => %{"username" => admin.username, "password" => valid_password()}
+        })
+
+      assert redirected_to(conn) == ~p"/admin/two_factor"
+
+      conn =
+        post(conn, ~p"/admin/two_factor", %{
+          "totp" => %{"code" => "000000"}
+        })
+
+      assert redirected_to(conn) == ~p"/admin/two_factor"
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "Code de vérification 2FA administrateur invalide"
+    end
   end
 end

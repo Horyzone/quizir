@@ -174,8 +174,28 @@ defmodule Quizir.EnvTest do
 
   describe "Project .env integration" do
     test "loads .env variables into System.get_env/1" do
-      # Since .env exists in the workspace, SMTP_HOST should be loaded into System.get_env/1
-      assert System.get_env("SMTP_HOST") != nil
+      if File.exists?(".env") do
+        # When .env exists in workspace, assert that variables are loaded into System.get_env/1
+        assert System.get_env("SMTP_HOST") != nil
+      else
+        # When running in environments without a workspace .env (e.g. CI or fresh checkout),
+        # verify that loading .env.example or a temporary env file populates System environment
+        tmp_dir =
+          Path.join(System.tmp_dir!(), "quizir_env_proj_#{System.unique_integer([:positive])}")
+
+        File.mkdir_p!(tmp_dir)
+
+        on_exit(fn ->
+          File.rm_rf!(tmp_dir)
+          System.delete_env("QUIZIR_PROJECT_TEST_VAR")
+        end)
+
+        File.write!(Path.join(tmp_dir, ".env"), "QUIZIR_PROJECT_TEST_VAR=loaded_ok\n")
+        {:ok, vars} = Env.load(root_dirs: [tmp_dir], config_env: :test)
+
+        assert vars["QUIZIR_PROJECT_TEST_VAR"] == "loaded_ok"
+        assert System.get_env("QUIZIR_PROJECT_TEST_VAR") == "loaded_ok"
+      end
     end
   end
 end

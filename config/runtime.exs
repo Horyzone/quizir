@@ -43,12 +43,12 @@ if config_env() == :dev do
       web_console_logger: true,
       patterns: [
         # Static assets, except user uploads
-        ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$"E,
+        ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$",
         # Gettext translations
-        ~r"priv/gettext/.*\.po$"E,
+        ~r"priv/gettext/.*\.po$",
         # Router, Controllers, LiveViews and LiveComponents
-        ~r"lib/quizir_web/router\.ex$"E,
-        ~r"lib/quizir_web/(controllers|live|components)/.*\.(ex|heex)$"E
+        ~r"lib/quizir_web/router\.ex$",
+        ~r"lib/quizir_web/(controllers|live|components)/.*\.(ex|heex)$"
       ]
     ]
 end
@@ -83,12 +83,40 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
+  host = System.get_env("PHX_HOST") || System.get_env("DOMAIN") || "localhost"
+  url_scheme = System.get_env("PHX_SCHEME") || System.get_env("URL_SCHEME") || "https"
+  default_port = if url_scheme == "https", do: "443", else: "80"
+
+  url_port =
+    String.to_integer(System.get_env("PHX_PORT") || System.get_env("URL_PORT") || default_port)
+
+  # LiveView & WebSocket origin check:
+  # Allows the configured host, localhost, 127.0.0.1, and any domains specified in CHECK_ORIGIN.
+  # Set CHECK_ORIGIN=false to allow all origins behind a trusted reverse proxy.
+  check_origin =
+    case System.get_env("CHECK_ORIGIN") do
+      val when val in ~w(false 0 FALSE no NO) ->
+        false
+
+      val when is_binary(val) and val != "" ->
+        val
+        |> String.split(",")
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+
+      _ ->
+        [
+          "//#{host}",
+          "//localhost",
+          "//127.0.0.1"
+        ]
+    end
 
   config :quizir, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :quizir, QuizirWeb.Endpoint,
-    url: [host: host, port: 443, scheme: "https"],
+    url: [host: host, port: url_port, scheme: url_scheme],
+    check_origin: check_origin,
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.

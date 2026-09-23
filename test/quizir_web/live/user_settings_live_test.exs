@@ -164,4 +164,150 @@ defmodule QuizirWeb.UserSettingsLiveTest do
       assert result =~ "ne correspond pas au mot de passe"
     end
   end
+
+  describe "Two-factor authentication (2FA)" do
+    setup %{conn: conn} do
+      password = valid_password()
+      user = user_fixture(%{password: password})
+      %{conn: log_in_user(conn, user), user: user, password: password}
+    end
+
+    test "renders 2FA section with inactive status by default", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(view, "#totp-status-badge", "Désactivée")
+      assert has_element?(view, "#start-2fa-setup-btn")
+    end
+
+    test "starting 2FA setup shows QR code, secret key, and confirmation form", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view |> element("#start-2fa-setup-btn") |> render_click()
+
+      assert has_element?(view, "#totp-setup-panel")
+      assert has_element?(view, "#totp-formatted-key")
+      assert has_element?(view, "#confirm_2fa_form")
+      assert has_element?(view, "#totp_confirm_code")
+      assert has_element?(view, "#cancel-2fa-setup-btn")
+    end
+
+    test "cancelling 2FA setup returns to initial state", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view |> element("#start-2fa-setup-btn") |> render_click()
+      assert has_element?(view, "#totp-setup-panel")
+
+      view |> element("#cancel-2fa-setup-btn") |> render_click()
+      refute has_element?(view, "#totp-setup-panel")
+      assert has_element?(view, "#start-2fa-setup-btn")
+    end
+
+    test "confirming 2FA setup with invalid code shows error", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view |> element("#start-2fa-setup-btn") |> render_click()
+
+      form =
+        form(view, "#confirm_2fa_form", %{
+          "totp" => %{"code" => "000000"}
+        })
+
+      render_submit(form)
+
+      assert has_element?(view, "[role=alert]", "Code 2FA incorrect")
+      refute Accounts.get_user!(user.id).totp_enabled
+    end
+
+    test "confirming 2FA setup with valid TOTP code activates 2FA", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      view |> element("#start-2fa-setup-btn") |> render_click()
+
+      # Retrieve the generated secret from the LiveView socket state
+      %{socket: %{assigns: %{totp_setup: %{secret: secret}}}} = :sys.get_state(view.pid)
+      valid_code = NimbleTOTP.verification_code(secret)
+
+      form =
+        form(view, "#confirm_2fa_form", %{
+          "totp" => %{"code" => valid_code}
+        })
+
+      render_submit(form)
+
+      assert has_element?(
+               view,
+               "[role=alert]",
+               "Authentification à deux facteurs activée avec succès !"
+             )
+
+      assert has_element?(view, "#totp-status-badge", "Activée")
+      assert has_element?(view, "#disable-2fa-btn")
+
+      updated_user = Accounts.get_user!(user.id)
+      assert updated_user.totp_enabled
+      assert updated_user.totp_secret == secret
+    end
+
+    test "disabling 2FA with incorrect password fails", %{conn: conn, user: user} do
+      secret = NimbleTOTP.secret()
+
+      {:ok, user} =
+        Quizir.Repo.update(
+          Ecto.Changeset.change(user, %{totp_enabled: true, totp_secret: secret})
+        )
+
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(view, "#totp-status-badge", "Activée")
+
+      form =
+        form(view, "#disable_2fa_form", %{
+          "disable_totp" => %{"current_password" => "wrong_password"}
+        })
+
+      render_submit(form)
+
+      assert has_element?(view, "[role=alert]", "Mot de passe incorrect")
+      assert Accounts.get_user!(user.id).totp_enabled
+    end
+
+    test "disabling 2FA with correct password disables 2FA", %{
+      conn: conn,
+      user: user,
+      password: current_password
+    } do
+      secret = NimbleTOTP.secret()
+
+      {:ok, user} =
+        Quizir.Repo.update(
+          Ecto.Changeset.change(user, %{totp_enabled: true, totp_secret: secret})
+        )
+
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/users/settings")
+
+      assert has_element?(view, "#totp-status-badge", "Activée")
+
+      form =
+        form(view, "#disable_2fa_form", %{
+          "disable_totp" => %{"current_password" => current_password}
+        })
+
+      render_submit(form)
+
+      assert has_element?(
+               view,
+               "[role=alert]",
+               "L'authentification à deux facteurs a été désactivée."
+             )
+
+      assert has_element?(view, "#totp-status-badge", "Désactivée")
+      assert has_element?(view, "#start-2fa-setup-btn")
+
+      updated_user = Accounts.get_user!(user.id)
+      refute updated_user.totp_enabled
+      assert updated_user.totp_secret == nil
+    end
+  end
 end
