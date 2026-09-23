@@ -151,5 +151,21 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
       assert has_element?(game_live, "#host-badge")
       assert has_element?(game_live, "#lobby-screen")
     end
+
+    test "shares the same live session with games routes to avoid cross-session navigation", %{
+      conn: _conn
+    } do
+      routes = QuizirWeb.Router.__routes__()
+
+      get_live_session = fn path ->
+        route = Enum.find(routes, fn r -> r.path == path end)
+        {_view, _action, _opts, %{name: name}} = route.metadata.phoenix_live_view
+        name
+      end
+
+      assert get_live_session.("/my-quizzes") == :current_user
+      assert get_live_session.("/games/:code") == :current_user
+      assert get_live_session.("/quizzes") == :current_user
+    end
   end
 end
