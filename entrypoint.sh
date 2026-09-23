@@ -43,7 +43,10 @@ echo "============================================================"
 echo "==> [1/4] Vérification des dépendances..."
 mix deps.get --only "$MIX_ENV"
 
-echo "==> [2/4] Compilation de l'application..."
+echo "==> [2/4] Compilation des assets statiques (Tailwind & JS)..."
+mix assets.deploy
+
+echo "==> [3/4] Compilation de l'application..."
 mix compile
 
 # Wait for database if DATABASE_URL is defined
@@ -61,14 +64,11 @@ if [ -n "$DATABASE_URL" ]; then
   done
   echo "==> Base de données connectée !"
 
-  echo "==> [3/4] Exécution des migrations..."
+  echo "==> [4/4] Exécution des migrations..."
   mix ecto.migrate
 else
-  echo "==> [3/4] DATABASE_URL non défini à ce stade, migrations différées."
+  echo "==> [4/4] DATABASE_URL non défini à ce stade, migrations différées."
 fi
-
-echo "==> [4/4] Compilation des assets statiques (Tailwind & JS)..."
-mix assets.deploy
 
 # Trap SIGHUP signal to trigger hot reload: docker kill -s HUP <container>
 trap 'echo "==> Signal SIGHUP reçu, rechargement à chaud..."; deploy' HUP

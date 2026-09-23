@@ -13,17 +13,17 @@ fi
 
 export MIX_ENV="${MIX_ENV:-prod}"
 
-echo "==> [1/4] Checking dependencies..."
+echo "==> [1/5] Checking dependencies..."
 mix deps.get --only "$MIX_ENV"
 
-echo "==> [2/4] Compiling updated Elixir code..."
+echo "==> [2/5] Building and digesting static assets (Tailwind & JS)..."
+mix assets.deploy
+
+echo "==> [3/5] Compiling updated Elixir code..."
 mix compile
 
-echo "==> [3/4] Running database migrations..."
+echo "==> [4/5] Running database migrations..."
 mix ecto.migrate
-
-echo "==> [4/4] Building and digesting static assets (Tailwind & JS)..."
-mix assets.deploy
 
 echo "==> [5/5] Hot-reloading modified modules into running Phoenix instance..."
 elixir --sname "quizir_deploy_$$" --cookie "${NODE_COOKIE:-quizir_node_cookie}" -e '
