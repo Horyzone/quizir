@@ -1,6 +1,8 @@
 defmodule QuizirWeb.QuizLive.MyQuizzes do
   use QuizirWeb, :live_view
 
+  on_mount {QuizirWeb.UserAuth, :ensure_authenticated}
+
   alias Quizir.Quizzes
 
   @impl true

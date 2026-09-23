@@ -37,27 +37,25 @@ defmodule QuizirWeb.Router do
     post "/users/two_factor", UserSessionController, :create_two_factor
   end
 
-  # Routes requiring authentication
-  scope "/", QuizirWeb do
-    pipe_through [:browser, :require_authenticated_user]
+  # General and authenticated user routes (sharing single live_session :current_user)
+  live_session :current_user,
+    on_mount: [{QuizirWeb.UserAuth, :mount_current_user}] do
+    # Routes requiring authentication
+    scope "/", QuizirWeb do
+      pipe_through [:browser, :require_authenticated_user]
 
-    live_session :require_authenticated_user,
-      on_mount: [{QuizirWeb.UserAuth, :ensure_authenticated}] do
       live "/quizzes/new", QuizLive.Form, :new
       live "/quizzes/:id/edit", QuizLive.Form, :edit
       live "/my-quizzes", QuizLive.MyQuizzes, :index
       live "/users/settings", UserSettingsLive, :edit
     end
-  end
 
-  # General routes (with current user mounted if present)
-  scope "/", QuizirWeb do
-    pipe_through :browser
+    # General routes (with current user mounted if present)
+    scope "/", QuizirWeb do
+      pipe_through :browser
 
-    delete "/users/log_out", UserSessionController, :delete
+      delete "/users/log_out", UserSessionController, :delete
 
-    live_session :current_user,
-      on_mount: [{QuizirWeb.UserAuth, :mount_current_user}] do
       live "/", HomeLive, :index
       live "/quizzes", QuizLive.Index, :index
       live "/quizzes/:id", QuizLive.Show, :show
