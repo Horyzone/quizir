@@ -61,6 +61,7 @@ defmodule QuizirWeb.Admin.DashboardLiveTest do
       assert has_element?(view, "#nav-back-to-site-btn")
       assert has_element?(view, "#admin-menu-btn")
       assert has_element?(view, "#header-admin-badge")
+      assert has_element?(view, "#nav-admin-settings-btn")
     end
   end
 

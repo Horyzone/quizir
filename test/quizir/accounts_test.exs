@@ -76,6 +76,24 @@ defmodule Quizir.AccountsTest do
       assert auth_user.id == user.id
     end
 
+    test "authenticates with valid email and password" do
+      user = user_fixture(%{email: "my_email@example.com"})
+
+      assert {:ok, auth_user} =
+               Accounts.get_user_by_username_and_password(user.email, valid_password())
+
+      assert auth_user.id == user.id
+
+      # Case-insensitive email authentication
+      assert {:ok, auth_user_ci} =
+               Accounts.get_user_by_username_and_password(
+                 "MY_EMAIL@EXAMPLE.COM",
+                 valid_password()
+               )
+
+      assert auth_user_ci.id == user.id
+    end
+
     test "returns error with incorrect password" do
       user = user_fixture()
 
@@ -407,6 +425,65 @@ defmodule Quizir.AccountsTest do
       search_email = Accounts.list_users(search: "casual@example.com")
       assert Enum.any?(search_email, &(&1.id == player.id))
       refute Enum.any?(search_email, &(&1.id == admin.id))
+    end
+  end
+
+  describe "two-factor authentication (2FA)" do
+    test "generates totp secret, uri, formatted secret and qr svg" do
+      user = user_fixture(%{username: "totp_user"})
+      secret = Accounts.generate_totp_secret()
+      assert is_binary(secret)
+      assert byte_size(secret) == 20
+
+      uri = Accounts.totp_uri(user, secret)
+      assert uri =~ "otpauth://totp/Quizir:totp_user"
+      assert uri =~ "issuer=Quizir"
+
+      formatted = Accounts.totp_formatted_secret(secret)
+      assert is_binary(formatted)
+      assert String.contains?(formatted, " ")
+
+      svg = Accounts.totp_qr_svg(uri)
+      assert is_binary(svg)
+      assert svg =~ "<svg"
+      assert svg =~ "</svg>"
+    end
+
+    test "validates TOTP code and handles user enabling / disabling" do
+      password = valid_password()
+      user = user_fixture(%{password: password})
+      secret = Accounts.generate_totp_secret()
+      code = NimbleTOTP.verification_code(secret)
+
+      assert Accounts.valid_totp_code?(secret, code)
+      refute Accounts.valid_totp_code?(secret, "000000")
+
+      # Before enabling, validate_user_totp returns false
+      refute Accounts.validate_user_totp(user, code)
+
+      # Invalid code to enable fails
+      assert {:error, :invalid_totp_code} = Accounts.enable_user_totp(user, secret, "000000")
+
+      # Valid code enables 2FA
+      assert {:ok, enabled_user} = Accounts.enable_user_totp(user, secret, code)
+      assert enabled_user.totp_enabled
+      assert enabled_user.totp_secret == secret
+
+      # Now validate_user_totp succeeds
+      assert Accounts.validate_user_totp(enabled_user, code)
+      refute Accounts.validate_user_totp(enabled_user, "000000")
+
+      # Disabling with wrong password fails
+      assert {:error, :invalid_password} =
+               Accounts.disable_user_totp(enabled_user, "wrong_password")
+
+      assert Accounts.get_user!(user.id).totp_enabled
+
+      # Disabling with correct password succeeds
+      assert {:ok, disabled_user} = Accounts.disable_user_totp(enabled_user, password)
+      refute disabled_user.totp_enabled
+      assert disabled_user.totp_secret == nil
+      refute Accounts.validate_user_totp(disabled_user, code)
     end
   end
 end

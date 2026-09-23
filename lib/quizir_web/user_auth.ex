@@ -85,7 +85,11 @@ defmodule QuizirWeb.UserAuth do
   """
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    user = user_token && Accounts.get_user_by_session_token(user_token)
+    admin_token = get_session(conn, :admin_user_token)
+
+    user =
+      (user_token && Accounts.get_user_by_session_token(user_token)) ||
+        (admin_token && Accounts.get_user_by_admin_session_token(admin_token))
 
     conn
     |> assign(:current_user, user)
@@ -199,7 +203,7 @@ defmodule QuizirWeb.UserAuth do
     if initial_setup_required?() and socket.view != QuizirWeb.LegalLive.Show do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
     else
-      user = get_user_from_session(session)
+      user = get_user_from_session(session) || get_admin_user_from_session(session)
       admin_user = get_admin_user_from_session(session)
       QuizirWeb.UserTracker.track_socket(socket, user)
 
@@ -215,7 +219,7 @@ defmodule QuizirWeb.UserAuth do
     if initial_setup_required?() do
       {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/users/register")}
     else
-      user = get_user_from_session(session)
+      user = get_user_from_session(session) || get_admin_user_from_session(session)
       admin_user = get_admin_user_from_session(session)
 
       if user do

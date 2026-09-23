@@ -121,6 +121,15 @@ defmodule QuizirWeb.Layouts do
                       <.icon name="hero-squares-2x2" class="size-4 text-error" /> Tableau de bord
                     </.link>
                   </li>
+                  <li>
+                    <.link
+                      navigate={~p"/users/settings"}
+                      id="nav-admin-settings-btn"
+                      class="text-xs font-semibold"
+                    >
+                      <.icon name="hero-cog-6-tooth" class="size-4 text-base-content/70" /> Mon compte
+                    </.link>
+                  </li>
                   <div class="divider my-1"></div>
                   <li>
                     <.link
@@ -270,6 +279,16 @@ defmodule QuizirWeb.Layouts do
             </.link>
 
             <%= if @current_admin_user do %>
+              <.link
+                navigate={~p"/users/settings"}
+                id="mobile-nav-admin-settings-btn"
+                class="btn btn-ghost btn-xs sm:btn-sm font-semibold gap-1"
+                title="Mon compte"
+              >
+                <.icon name="hero-cog-6-tooth" class="size-3.5" />
+                <span class="hidden xs:inline">Compte</span>
+              </.link>
+
               <.link
                 href={~p"/admin/log_out"}
                 method="delete"

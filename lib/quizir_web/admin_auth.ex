@@ -17,12 +17,15 @@ defmodule QuizirWeb.AdminAuth do
   def log_in_admin_user(conn, user) do
     token = Accounts.generate_admin_session_token(user)
     admin_return_to = get_session(conn, :admin_return_to)
+    user_token = get_session(conn, :user_token) || Accounts.generate_user_session_token(user)
 
     conn
     |> configure_session(renew: true)
     |> delete_session(:admin_return_to)
     |> put_session(:admin_user_token, token)
     |> put_session(:admin_live_socket_id, "admin_sessions:#{Base.url_encode64(token)}")
+    |> put_session(:user_token, user_token)
+    |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(user_token)}")
     |> redirect(to: admin_return_to || ~p"/admin")
   end
 

@@ -37,9 +37,9 @@ defmodule QuizirWeb.UserLoginLive do
             <.input
               field={@form[:username]}
               type="text"
-              label="Nom d'utilisateur"
+              label="Nom d'utilisateur ou email"
               id="user_username"
-              placeholder="Votre nom d'utilisateur"
+              placeholder="Votre nom d'utilisateur ou email"
               required
             />
 

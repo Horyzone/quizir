@@ -10,6 +10,8 @@ defmodule Quizir.Accounts.User do
     field :password_confirmation, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
     field :admin, :boolean, default: false
+    field :totp_enabled, :boolean, default: false
+    field :totp_secret, :binary, redact: true
 
     has_many :quizzes, Quizir.Quizzes.Quiz, on_delete: :nilify_all
     has_many :tokens, Quizir.Accounts.UserToken, on_delete: :delete_all
