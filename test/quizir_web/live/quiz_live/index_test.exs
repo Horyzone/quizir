@@ -9,6 +9,7 @@ defmodule QuizirWeb.QuizLive.IndexTest do
     test "renders empty state when there are no quizzes", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes")
 
+      assert page_title(view) == "Explorer · Quizir"
       assert has_element?(view, "#empty-quizzes-state")
       assert has_element?(view, "#new-quiz-button")
     end

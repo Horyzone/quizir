@@ -5,7 +5,11 @@ defmodule QuizirWeb.QuizLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     quizzes = Quizzes.list_public_quizzes()
-    {:ok, stream(socket, :quizzes, quizzes)}
+
+    {:ok,
+     socket
+     |> assign(:page_title, "Explorer")
+     |> stream(:quizzes, quizzes)}
   end
 
   @impl true

@@ -20,7 +20,7 @@ defmodule QuizirWeb.HomeLive do
 
     {:ok,
      socket
-     |> assign(:page_title, "Accueil - Quizir")
+     |> assign(:page_title, "Accueil")
      |> assign(:recent_quizzes, recent_quizzes)
      |> assign(:total_quizzes_count, length(all_quizzes))
      |> assign(:join_form, join_form)
