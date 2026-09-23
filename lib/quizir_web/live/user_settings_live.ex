@@ -377,7 +377,7 @@ defmodule QuizirWeb.UserSettingsLive do
                     Authentification à deux facteurs (2FA)
                   </h2>
                   <p class="text-xs text-base-content/70 mt-0.5">
-                    Sécurisez votre compte avec une application d'authentification TOTP (Google Authenticator, Authy, Aegis, 1Password...)
+                    Sécurisez votre compte avec une application d'authentification TOTP (Google Authenticator, Authy, Aegis...)
                   </p>
                 </div>
               </div>
@@ -395,7 +395,7 @@ defmodule QuizirWeb.UserSettingsLive do
                     id="totp-status-badge"
                     class="badge badge-ghost badge-sm gap-1.5 font-bold text-base-content/60 py-3 px-3"
                   >
-                    <.icon name="hero-no-symbol" class="size-3.5" /> Désactivée (Optionnel)
+                    <.icon name="hero-no-symbol" class="size-3.5" /> Désactivée
                   </span>
                 <% end %>
               </div>
@@ -430,25 +430,34 @@ defmodule QuizirWeb.UserSettingsLive do
                       for={@disable_totp_form}
                       id="disable_2fa_form"
                       phx-submit="disable_2fa"
-                      class="flex flex-col sm:flex-row items-start sm:items-end gap-3 max-w-lg"
+                      class="max-w-lg"
                     >
-                      <div class="flex-1 w-full">
-                        <.input
-                          field={@disable_totp_form[:current_password]}
-                          type="password"
-                          label="Mot de passe actuel"
-                          id="disable_totp_password"
-                          placeholder="••••••••"
-                          required
-                        />
+                      <div class="space-y-1.5">
+                        <label
+                          for="disable_totp_password"
+                          class="text-xs font-bold text-base-content block"
+                        >
+                          Mot de passe actuel
+                        </label>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-start gap-3">
+                          <div class="flex-1 w-full [&_.fieldset]:!p-0 [&_.fieldset]:!mb-0 [&_.fieldset]:!gap-0">
+                            <.input
+                              field={@disable_totp_form[:current_password]}
+                              type="password"
+                              id="disable_totp_password"
+                              placeholder="••••••••"
+                              required
+                            />
+                          </div>
+                          <.button
+                            id="disable-2fa-btn"
+                            type="submit"
+                            class="btn btn-error btn-outline font-bold gap-1.5 shrink-0"
+                          >
+                            <.icon name="hero-trash" class="size-4" /> Désactiver le 2FA
+                          </.button>
+                        </div>
                       </div>
-                      <.button
-                        id="disable-2fa-btn"
-                        type="submit"
-                        class="btn btn-error btn-outline font-bold gap-1.5 shrink-0"
-                      >
-                        <.icon name="hero-trash" class="size-4" /> Désactiver le 2FA
-                      </.button>
                     </.form>
                   </div>
                 </div>
