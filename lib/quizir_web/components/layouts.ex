@@ -445,11 +445,6 @@ defmodule QuizirWeb.Layouts do
                   <.icon name="hero-shield-check" class="size-3.5 text-success" />
                   <span>Aucune donnée transmise à des tiers</span>
                 </span>
-                <span>•</span>
-                <span class="inline-flex items-center gap-1">
-                  <.icon name="hero-cpu-chip" class="size-3.5 text-primary" />
-                  <span>Architecture temps réel BEAM</span>
-                </span>
               </div>
             </div>
 

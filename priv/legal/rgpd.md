@@ -75,4 +75,4 @@ Conformément aux articles 15 à 22 du RGPD, vous disposez des droits suivants c
 - **Droit à l'effacement (« droit à l'oubli ») :** Demander la suppression définitive de votre compte et des quiz associés.
 - **Droit d'opposition et de limitation du traitement.**
 
-Pour exercer l'un de ces droits, vous pouvez contacter les développeurs à l'adresse **contact@quizir.local** ou via l'espace de gestion du dépôt de code. Votre demande sera traitée dans les meilleurs délais.
+Pour exercer l'un de ces droits, vous pouvez contacter les développeurs à l'adresse **contact@horyzone.fr** ou via l'espace de gestion du dépôt de code. Votre demande sera traitée dans les meilleurs délais.

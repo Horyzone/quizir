@@ -14,7 +14,7 @@ La plateforme **Quizir** est éditée à titre personnel par une équipe de dév
 
 - **Responsable de publication :** Équipe de développement Quizir
 - **Statut :** Projet open-source et démonstrateur technologique indépendant
-- **Contact :** contact@quizir.local (ou via le dépôt de code source du projet)
+- **Contact :** contact@horyzone.fr (ou via le dépôt de code source du projet)
 
 ---
 
