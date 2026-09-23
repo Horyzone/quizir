@@ -16,11 +16,11 @@ export MIX_ENV="${MIX_ENV:-prod}"
 echo "==> [1/5] Checking dependencies..."
 mix deps.get --only "$MIX_ENV"
 
-echo "==> [2/5] Building and digesting static assets (Tailwind & JS)..."
-mix assets.deploy
-
-echo "==> [3/5] Compiling updated Elixir code..."
+echo "==> [2/5] Compiling updated Elixir code..."
 mix compile
+
+echo "==> [3/5] Building and digesting static assets (Tailwind & JS)..."
+mix assets.deploy
 
 echo "==> [4/5] Running database migrations..."
 mix ecto.migrate

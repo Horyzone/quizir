@@ -43,11 +43,11 @@ echo "============================================================"
 echo "==> [1/4] Vérification des dépendances..."
 mix deps.get --only "$MIX_ENV"
 
-echo "==> [2/4] Compilation des assets statiques (Tailwind & JS)..."
-mix assets.deploy
-
-echo "==> [3/4] Compilation de l'application..."
+echo "==> [2/4] Compilation de l'application..."
 mix compile
+
+echo "==> [3/4] Compilation des assets statiques (Tailwind & JS)..."
+mix assets.deploy
 
 # Wait for database if DATABASE_URL is defined
 if [ -n "$DATABASE_URL" ]; then
