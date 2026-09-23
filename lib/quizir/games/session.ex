@@ -402,7 +402,12 @@ defmodule Quizir.Games.Session do
             leaderboard = build_leaderboard(state.players)
             broadcast(new_state, {:game_finished, leaderboard})
             record_completed_game(new_state, leaderboard)
-            new_state = maybe_schedule_cleanup(new_state)
+
+            new_state =
+              new_state
+              |> cancel_cleanup_timer()
+              |> maybe_schedule_cleanup()
+
             {:reply, :ok, new_state}
           end
 

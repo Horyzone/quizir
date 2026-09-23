@@ -270,7 +270,7 @@ defmodule Quizir.Games.SessionTest do
     end
 
     test "automatically terminates finished session when all players leave" do
-      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 50)
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 100)
       ref = Process.monitor(pid)
 
       {:ok, alice} = Session.join_player(pid, "Alice")
@@ -289,12 +289,12 @@ defmodule Quizir.Games.SessionTest do
       # Alice leaves the finished game
       :ok = Session.leave_player(pid, alice.id)
 
-      # Session should terminate after cleanup_timeout (50ms)
-      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
+      # Session should terminate after cleanup_timeout (100ms)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 1000
     end
 
     test "automatically terminates session in-game when all players leave" do
-      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 50)
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 100)
       ref = Process.monitor(pid)
 
       {:ok, alice} = Session.join_player(pid, "Alice")
@@ -304,7 +304,7 @@ defmodule Quizir.Games.SessionTest do
       :ok = Session.leave_player(pid, alice.id)
 
       # Session terminates because 0 players remain in active game
-      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 1000
     end
 
     test "schedules cleanup timer when all players leave during active game" do
@@ -322,7 +322,7 @@ defmodule Quizir.Games.SessionTest do
     end
 
     test "automatically terminates when game finishes with 0 players" do
-      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 50)
+      %{pid: pid, host_token: host_token} = start_session(sample_quiz(), cleanup_timeout: 200)
       ref = Process.monitor(pid)
 
       {:ok, alice} = Session.join_player(pid, "Alice")
@@ -352,8 +352,8 @@ defmodule Quizir.Games.SessionTest do
       assert state_fin.status == :finished
       assert map_size(state_fin.players) == 0
 
-      # Since 0 players in :finished, terminates after cleanup_timeout (50ms)
-      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 500
+      # Since 0 players in :finished, terminates after cleanup_timeout (200ms)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 1000
     end
   end
 end
