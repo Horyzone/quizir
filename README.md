@@ -10,7 +10,7 @@
 
 **Plateforme web de quiz multijoueurs synchronisés en temps réel développée avec Elixir et Phoenix LiveView.**
 
-[Fonctionnalités](#fonctionnalités-et-parcours-utilisateur) • [Aspects Techniques](#architecture-technique) • [Installation Docker](#installation-avec-docker) • [Développement Local](#démarrage-en-développement-local) • [Engagements Éthiques](#protection-des-données--engagements-légaux)
+[Fonctionnalités](#fonctionnalités-et-parcours-utilisateur) • [Aspects Techniques](#architecture-technique) • [Installation Docker](#installation-avec-docker) • [Stockage S3](#configuration-du-stockage-s3-pour-les-images-optionnel) • [Développement Local](#démarrage-en-développement-local) • [Engagements Éthiques](#protection-des-données--engagements-légaux)
 
 </div>
 
@@ -118,7 +118,21 @@ Renseignez ensuite la chaîne obtenue dans votre fichier `.env` :
 SECRET_KEY_BASE=votre_cle_generee_ici
 ```
 
-Vous pouvez également adapter les autres variables dans le fichier `.env` (domaine, configuration SMTP pour les emails, etc.).
+Vous pouvez également adapter les autres variables dans le fichier `.env` (domaine, configuration SMTP pour les emails, stockage S3, etc.).
+
+#### Configuration du stockage S3 pour les images (Optionnel)
+Quizir permet de téléverser des images pour illustrer les quiz (carte de présentation) et les questions. Par défaut, si aucune variable S3 n'est renseignée, les fichiers téléversés sont conservés localement dans le dossier `priv/static/uploads/`.
+
+Pour déléguer le stockage des images à un service compatible S3 (Amazon S3, Cloudflare R2, MinIO, Scaleway, Wasabi, OVHcloud, etc.), configurez les variables d'environnement suivantes :
+
+| Variable | Obligatoire | Description | Exemple / Valeur par défaut |
+| :--- | :---: | :--- | :--- |
+| `S3_BUCKET` *(ou `AWS_S3_BUCKET`)* | Oui | Nom du bucket S3 | `quizir-media` |
+| `S3_ACCESS_KEY_ID` *(ou `AWS_ACCESS_KEY_ID`)* | Oui | Identifiant de la clé d'accès | `AKIAIOSFODNN7EXAMPLE` |
+| `S3_SECRET_ACCESS_KEY` *(ou `AWS_SECRET_ACCESS_KEY`)* | Oui | Clé secrète associée | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
+| `S3_REGION` *(ou `AWS_REGION`)* | Non | Région géographique du bucket | `eu-west-3` *(défaut : `us-east-1`)* |
+| `S3_ENDPOINT` *(ou `AWS_ENDPOINT_URL_S3`)* | Non | Endpoint S3 personnalisé (nécessaire pour MinIO, R2, Scaleway, etc.) | `https://s3.fr-par.scw.cloud` |
+| `S3_PUBLIC_URL` | Non | URL publique de distribution (CDN ou domaine personnalisé) | `https://cdn.quizir.app` |
 
 ### 2. Démarrer l'application
 Lancez l'ensemble des services (base de données et application Phoenix) en arrière-plan :
