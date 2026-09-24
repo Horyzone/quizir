@@ -159,6 +159,30 @@ defmodule QuizirWeb.QuizLive.ShowTest do
       assert has_element?(game_live, "#lobby-screen")
     end
 
+    test "displays quiz image and question image when present", %{conn: conn} do
+      quiz =
+        create_detailed_quiz(%{
+          image_url: "https://example.com/quiz_cover.jpg",
+          questions: [
+            %{
+              body: "Comment s'appelle l'acteur sur cette photo ?",
+              order: 1,
+              time_limit_seconds: 20,
+              image_url: "https://example.com/actor.png",
+              answer_options: [
+                %{body: "Tom Hanks", is_correct: true},
+                %{body: "Brad Pitt", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}")
+
+      assert has_element?(view, "#quiz-details-image[src='https://example.com/quiz_cover.jpg']")
+      assert has_element?(view, "img[src='https://example.com/actor.png']")
+    end
+
     test "navigates back to index", %{conn: conn} do
       quiz = create_detailed_quiz()
 

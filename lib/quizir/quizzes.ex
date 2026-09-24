@@ -5,8 +5,9 @@ defmodule Quizir.Quizzes do
 
   import Ecto.Query, warn: false
   alias Quizir.Repo
-
   alias Quizir.Quizzes.Quiz
+  alias Quizir.Quizzes.Question
+  alias Quizir.Storage
 
   @doc """
   Returns the list of quizzes.
@@ -227,6 +228,7 @@ defmodule Quizir.Quizzes do
           "body" => q.body,
           "order" => q.order,
           "time_limit_seconds" => q.time_limit_seconds,
+          "image_url" => q.image_url,
           "answer_options" => options
         }
       end)
@@ -235,6 +237,7 @@ defmodule Quizir.Quizzes do
       "title" => "#{quiz.title} (copie)",
       "description" => quiz.description,
       "visibility" => quiz.visibility,
+      "image_url" => quiz.image_url,
       "questions" => duplicated_questions
     }
 
@@ -276,12 +279,43 @@ defmodule Quizir.Quizzes do
 
   """
   def update_quiz(%Quiz{} = quiz, attrs) do
+    old_quiz_image = quiz.image_url
+
+    old_question_images =
+      if quiz.id do
+        Repo.all(
+          from q in Question,
+            where: q.quiz_id == ^quiz.id and not is_nil(q.image_url) and q.image_url != "",
+            select: q.image_url
+        )
+      else
+        []
+      end
+
     result =
       quiz
       |> Quiz.changeset(attrs)
       |> Repo.update()
 
     with {:ok, updated_quiz} <- result do
+      if old_quiz_image && old_quiz_image != "" && old_quiz_image != updated_quiz.image_url do
+        Storage.delete_file(old_quiz_image)
+      end
+
+      current_question_images =
+        Repo.all(
+          from q in Question,
+            where:
+              q.quiz_id == ^updated_quiz.id and not is_nil(q.image_url) and q.image_url != "",
+            select: q.image_url
+        )
+        |> MapSet.new()
+
+      old_question_images
+      |> Enum.reject(&MapSet.member?(current_question_images, &1))
+      |> Enum.uniq()
+      |> Enum.each(&Storage.delete_file/1)
+
       Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :quizzes})
       {:ok, updated_quiz}
     end
@@ -300,12 +334,39 @@ defmodule Quizir.Quizzes do
 
   """
   def delete_quiz(%Quiz{} = quiz) do
+    image_urls = get_quiz_image_urls(quiz)
+
     result = Repo.delete(quiz)
 
     with {:ok, deleted_quiz} <- result do
+      Enum.each(image_urls, &Storage.delete_file/1)
       Phoenix.PubSub.broadcast(Quizir.PubSub, "admin:dashboard", {:admin_content_event, :quizzes})
       {:ok, deleted_quiz}
     end
+  end
+
+  defp get_quiz_image_urls(%Quiz{} = quiz) do
+    question_images =
+      case quiz.questions do
+        %Ecto.Association.NotLoaded{} ->
+          if quiz.id do
+            Repo.all(
+              from q in Question,
+                where: q.quiz_id == ^quiz.id and not is_nil(q.image_url) and q.image_url != "",
+                select: q.image_url
+            )
+          else
+            []
+          end
+
+        questions when is_list(questions) ->
+          Enum.map(questions, & &1.image_url)
+      end
+
+    [quiz.image_url | question_images]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
   end
 
   @doc """
@@ -401,7 +462,15 @@ defmodule Quizir.Quizzes do
 
   """
   def delete_question(%Question{} = question) do
-    Repo.delete(question)
+    result = Repo.delete(question)
+
+    with {:ok, deleted_question} <- result do
+      if deleted_question.image_url && deleted_question.image_url != "" do
+        Storage.delete_file(deleted_question.image_url)
+      end
+
+      {:ok, deleted_question}
+    end
   end
 
   @doc """

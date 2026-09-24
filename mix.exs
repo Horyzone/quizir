@@ -4,7 +4,7 @@ defmodule Quizir.MixProject do
   def project do
     [
       app: :quizir,
-      version: "0.1.0",
+      version: "1.0.0-beta3",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -69,6 +69,7 @@ defmodule Quizir.MixProject do
       {:gen_smtp, "~> 1.3"},
       {:pbkdf2_elixir, "~> 2.3"},
       {:req, "~> 0.5"},
+      {:req_s3, "~> 0.2.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},

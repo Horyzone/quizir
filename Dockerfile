@@ -20,6 +20,7 @@ RUN apt-get update -y && \
       curl \
       ca-certificates \
       inotify-tools \
+      ffmpeg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Installation des gestionnaires de paquets Elixir / Erlang

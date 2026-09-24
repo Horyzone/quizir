@@ -20,7 +20,7 @@ defmodule QuizirWeb.HomeLive do
 
     {:ok,
      socket
-     |> assign(:page_title, "Accueil - Quizir")
+     |> assign(:page_title, "Accueil")
      |> assign(:recent_quizzes, recent_quizzes)
      |> assign(:total_quizzes_count, length(all_quizzes))
      |> assign(:join_form, join_form)
@@ -379,7 +379,18 @@ defmodule QuizirWeb.HomeLive do
                     <span class="badge badge-success badge-sm font-semibold shrink-0">Public</span>
                   </div>
 
-                  <p class="text-xs text-base-content/60 line-clamp-2 mt-1">
+                  <%= if quiz.image_url do %>
+                    <div class="mt-2.5 overflow-hidden rounded-xl border border-base-200">
+                      <img
+                        src={quiz.image_url}
+                        alt={quiz.title}
+                        class="w-full h-36 object-cover hover:scale-105 transition duration-300"
+                        loading="lazy"
+                      />
+                    </div>
+                  <% end %>
+
+                  <p class="text-xs text-base-content/60 line-clamp-2 mt-2">
                     {quiz.description || "Aucune description fournie."}
                   </p>
 

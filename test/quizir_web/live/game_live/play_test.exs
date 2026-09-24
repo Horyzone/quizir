@@ -46,6 +46,38 @@ defmodule QuizirWeb.GameLive.PlayTest do
       assert has_element?(view, "#host-start-game-btn")
     end
 
+    test "displays quiz image in lobby and question image during question phase", %{conn: conn} do
+      {:ok, quiz} =
+        Quizzes.create_quiz(%{
+          title: "Quiz avec Visuels",
+          visibility: "public",
+          image_url: "https://example.com/quiz_lobby.jpg",
+          questions: [
+            %{
+              body: "Comment s'appelle l'acteur sur cette photo ?",
+              order: 1,
+              time_limit_seconds: 20,
+              image_url: "https://example.com/actor_photo.png",
+              answer_options: [
+                %{body: "Acteur A", is_correct: true},
+                %{body: "Acteur B", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      {:ok, game} = Games.create_game(quiz)
+
+      # In lobby
+      {:ok, view, _html} = live(conn, ~p"/games/#{game.code}?host_token=#{game.host_token}")
+      assert has_element?(view, "#lobby-screen img[src='https://example.com/quiz_lobby.jpg']")
+
+      # Start game -> question screen
+      view |> element("#host-start-game-btn") |> render_click()
+      assert has_element?(view, "#question-screen")
+      assert has_element?(view, "#question-image[src='https://example.com/actor_photo.png']")
+    end
+
     test "renders game audio controller hook and audio toolbar with background music options", %{
       conn: conn
     } do

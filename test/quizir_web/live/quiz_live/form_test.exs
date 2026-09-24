@@ -176,6 +176,96 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert created.user_id == user.id
     end
 
+    test "image upload is disabled when S3 is not configured", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      refute has_element?(view, "input[type='file']")
+      refute has_element?(view, "label", "Téléverser une image de couverture")
+    end
+
+    test "creates quiz with image upload when S3 is configured", %{conn: conn, user: _user} do
+      Application.put_env(:quizir, :s3_configured_override, true)
+
+      Application.put_env(:quizir, :storage_test_uploader, fn _path, original_filename ->
+        {:ok, "https://s3.example.com/uploads/#{original_filename}"}
+      end)
+
+      on_exit(fn ->
+        Application.put_env(:quizir, :s3_configured_override, false)
+        Application.delete_env(:quizir, :storage_test_uploader)
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      assert has_element?(view, "label", "Téléverser une image de couverture")
+
+      image =
+        file_input(view, "#quiz-form", :quiz_image, [
+          %{
+            name: "cover.png",
+            content: <<137, 80, 78, 71, 13, 10, 26, 10>>,
+            type: "image/png"
+          }
+        ])
+
+      assert render_upload(image, "cover.png") =~ "100%"
+
+      {:ok, _index_view, html} =
+        view
+        |> form("#quiz-form", quiz: @valid_quiz_params)
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/quizzes")
+
+      assert html =~ "Quiz sur la Géographie"
+
+      created =
+        Quizzes.list_quizzes()
+        |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
+
+      assert created.image_url == "https://s3.example.com/uploads/cover.png"
+    end
+
+    test "does not save image when upload exceeds 500 Ko after optimization", %{conn: conn} do
+      Application.put_env(:quizir, :s3_configured_override, true)
+
+      Application.put_env(:quizir, :storage_test_uploader, fn _path, _original_filename ->
+        {:error, :file_too_large}
+      end)
+
+      on_exit(fn ->
+        Application.put_env(:quizir, :s3_configured_override, false)
+        Application.delete_env(:quizir, :storage_test_uploader)
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      image =
+        file_input(view, "#quiz-form", :quiz_image, [
+          %{
+            name: "huge_cover.jpg",
+            content: "some binary data",
+            type: "image/jpeg"
+          }
+        ])
+
+      assert render_upload(image, "huge_cover.jpg") =~ "100%"
+
+      {:ok, _index_view, html} =
+        view
+        |> form("#quiz-form", quiz: @valid_quiz_params)
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/quizzes")
+
+      assert html =~
+               "Une ou plusieurs images dépassent 500 Ko après optimisation et n&#39;ont pas été enregistrées."
+
+      created =
+        Quizzes.list_quizzes()
+        |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
+
+      assert created.image_url == nil
+    end
+
     test "creates a private quiz without access code", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
@@ -323,6 +413,72 @@ defmodule QuizirWeb.QuizLive.FormTest do
         |> render_submit()
 
       assert response =~ "can&#39;t be blank"
+    end
+
+    test "can remove quiz and question images via form buttons", %{conn: conn, user: user} do
+      {:ok, quiz} =
+        Quizzes.create_quiz(
+          %{
+            "title" => "Quiz avec images",
+            "visibility" => "public",
+            "image_url" => "https://example.com/initial_cover.jpg",
+            "questions" => [
+              %{
+                "body" => "Question illustrée",
+                "order" => 1,
+                "time_limit_seconds" => 20,
+                "image_url" => "https://example.com/initial_q.jpg",
+                "answer_options" => [
+                  %{"body" => "Oui", "is_correct" => true},
+                  %{"body" => "Non", "is_correct" => false}
+                ]
+              }
+            ]
+          },
+          user
+        )
+
+      test_pid = self()
+
+      Application.put_env(:quizir, :storage_test_deleter, fn url ->
+        send(test_pid, {:deleted_file, url})
+        :ok
+      end)
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :storage_test_deleter)
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      assert has_element?(view, "#quiz-cover-preview")
+      assert has_element?(view, "#question-image-preview-0")
+
+      view
+      |> element("#remove-quiz-image-btn")
+      |> render_click()
+
+      refute has_element?(view, "#quiz-cover-preview")
+
+      view
+      |> element("#remove-question-image-0-btn")
+      |> render_click()
+
+      refute has_element?(view, "#question-image-preview-0")
+
+      {:ok, _show_view, _html} =
+        view
+        |> form("#quiz-form")
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/quizzes/#{quiz}")
+
+      updated_quiz = Quizzes.get_quiz_with_details!(quiz.id)
+      assert updated_quiz.image_url == nil
+      [updated_q] = updated_quiz.questions
+      assert updated_q.image_url == nil
+
+      assert_received {:deleted_file, "https://example.com/initial_cover.jpg"}
+      assert_received {:deleted_file, "https://example.com/initial_q.jpg"}
     end
 
     test "navigates back to show page on cancel", %{conn: conn, user: user} do

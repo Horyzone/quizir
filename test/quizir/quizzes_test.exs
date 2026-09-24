@@ -59,6 +59,77 @@ defmodule Quizir.QuizzesTest do
       assert quiz.visibility == "private"
     end
 
+    test "update_quiz/2 deletes old images from storage when removed or replaced" do
+      test_pid = self()
+
+      Application.put_env(:quizir, :storage_test_deleter, fn url ->
+        send(test_pid, {:deleted_file, url})
+        :ok
+      end)
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :storage_test_deleter)
+      end)
+
+      {:ok, quiz} =
+        Quizzes.create_quiz(%{
+          title: "Quiz initial",
+          visibility: "public",
+          image_url: "https://s3.example.com/uploads/old_quiz_cover.png",
+          questions: [
+            %{
+              body: "Q1",
+              order: 1,
+              time_limit_seconds: 20,
+              image_url: "https://s3.example.com/uploads/old_q1.png",
+              answer_options: [
+                %{body: "A1", is_correct: true},
+                %{body: "A2", is_correct: false}
+              ]
+            },
+            %{
+              body: "Q2",
+              order: 2,
+              time_limit_seconds: 20,
+              image_url: "https://s3.example.com/uploads/keep_q2.png",
+              answer_options: [
+                %{body: "A1", is_correct: true},
+                %{body: "A2", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      quiz = Quizzes.get_quiz_with_details!(quiz.id)
+      [q1, q2] = quiz.questions
+
+      # Update quiz: remove cover image, replace Q1 image, keep Q2 image
+      {:ok, _updated_quiz} =
+        Quizzes.update_quiz(quiz, %{
+          image_url: nil,
+          questions: [
+            %{
+              id: q1.id,
+              body: "Q1 updated",
+              order: 1,
+              time_limit_seconds: 20,
+              image_url: "https://s3.example.com/uploads/new_q1.png"
+            },
+            %{
+              id: q2.id,
+              body: "Q2 unchanged",
+              order: 2,
+              time_limit_seconds: 20,
+              image_url: "https://s3.example.com/uploads/keep_q2.png"
+            }
+          ]
+        })
+
+      assert_received {:deleted_file, "https://s3.example.com/uploads/old_quiz_cover.png"}
+      assert_received {:deleted_file, "https://s3.example.com/uploads/old_q1.png"}
+      refute_received {:deleted_file, "https://s3.example.com/uploads/keep_q2.png"}
+    end
+
     test "update_quiz/2 with invalid data returns error changeset" do
       quiz = quiz_fixture()
       assert {:error, %Ecto.Changeset{}} = Quizzes.update_quiz(quiz, @invalid_attrs)
@@ -93,6 +164,52 @@ defmodule Quizir.QuizzesTest do
       assert_raise Ecto.NoResultsError, fn -> Quizzes.get_quiz!(quiz.id) end
       assert Quizzes.list_questions() == []
       assert Quizzes.list_answer_options() == []
+    end
+
+    test "delete_quiz/1 deletes associated images from storage" do
+      test_pid = self()
+
+      Application.put_env(:quizir, :storage_test_deleter, fn url ->
+        send(test_pid, {:deleted_file, url})
+        :ok
+      end)
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :storage_test_deleter)
+      end)
+
+      {:ok, quiz} =
+        Quizzes.create_quiz(%{
+          title: "Quiz avec images",
+          visibility: "public",
+          image_url: "https://s3.example.com/uploads/quiz_cover.png",
+          questions: [
+            %{
+              body: "Q1 avec image",
+              order: 1,
+              time_limit_seconds: 20,
+              image_url: "https://s3.example.com/uploads/q1_pic.png",
+              answer_options: [
+                %{body: "A1", is_correct: true},
+                %{body: "A2", is_correct: false}
+              ]
+            },
+            %{
+              body: "Q2 sans image",
+              order: 2,
+              time_limit_seconds: 20,
+              answer_options: [
+                %{body: "A1", is_correct: true},
+                %{body: "A2", is_correct: false}
+              ]
+            }
+          ]
+        })
+
+      assert {:ok, %Quiz{}} = Quizzes.delete_quiz(quiz)
+
+      assert_received {:deleted_file, "https://s3.example.com/uploads/quiz_cover.png"}
+      assert_received {:deleted_file, "https://s3.example.com/uploads/q1_pic.png"}
     end
 
     test "change_quiz/1 returns a quiz changeset" do
@@ -187,6 +304,24 @@ defmodule Quizir.QuizzesTest do
       question = question_fixture()
       assert {:ok, %Question{}} = Quizzes.delete_question(question)
       assert_raise Ecto.NoResultsError, fn -> Quizzes.get_question!(question.id) end
+    end
+
+    test "delete_question/1 deletes associated image from storage" do
+      test_pid = self()
+
+      Application.put_env(:quizir, :storage_test_deleter, fn url ->
+        send(test_pid, {:deleted_file, url})
+        :ok
+      end)
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :storage_test_deleter)
+      end)
+
+      question = question_fixture(%{image_url: "https://s3.example.com/uploads/question.png"})
+      assert {:ok, %Question{}} = Quizzes.delete_question(question)
+
+      assert_received {:deleted_file, "https://s3.example.com/uploads/question.png"}
     end
 
     test "change_question/1 returns a question changeset" do

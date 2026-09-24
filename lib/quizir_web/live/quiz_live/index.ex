@@ -5,7 +5,11 @@ defmodule QuizirWeb.QuizLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     quizzes = Quizzes.list_public_quizzes()
-    {:ok, stream(socket, :quizzes, quizzes)}
+
+    {:ok,
+     socket
+     |> assign(:page_title, "Explorer")
+     |> stream(:quizzes, quizzes)}
   end
 
   @impl true
@@ -132,6 +136,18 @@ defmodule QuizirWeb.QuizLive.Index do
                   {String.capitalize(quiz.visibility)}
                 </span>
               </div>
+
+              <%= if quiz.image_url do %>
+                <div class="mt-3 overflow-hidden rounded-xl border border-base-200">
+                  <img
+                    src={quiz.image_url}
+                    alt={quiz.title}
+                    class="w-full h-40 object-cover hover:scale-105 transition duration-300"
+                    loading="lazy"
+                  />
+                </div>
+              <% end %>
+
               <p class="text-zinc-600 text-sm mt-2 line-clamp-2">
                 {quiz.description || "Aucune description"}
               </p>

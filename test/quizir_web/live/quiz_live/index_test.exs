@@ -9,6 +9,7 @@ defmodule QuizirWeb.QuizLive.IndexTest do
     test "renders empty state when there are no quizzes", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes")
 
+      assert page_title(view) == "Explorer · Quizir"
       assert has_element?(view, "#empty-quizzes-state")
       assert has_element?(view, "#new-quiz-button")
     end
@@ -23,6 +24,25 @@ defmodule QuizirWeb.QuizLive.IndexTest do
       assert has_element?(view, "#duplicate-quiz-#{quiz.id}-btn")
       refute has_element?(view, "#edit-quiz-#{quiz.id}-btn")
       refute has_element?(view, "#delete-quiz-#{quiz.id}-btn")
+    end
+
+    test "renders quiz card image when present", %{conn: conn} do
+      owner = user_fixture()
+
+      quiz =
+        quiz_fixture(%{
+          title: "Quiz Photo",
+          visibility: "public",
+          user_id: owner.id,
+          image_url: "https://example.com/card_image.png"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes")
+
+      assert has_element?(
+               view,
+               "#quizzes-#{quiz.id} img[src='https://example.com/card_image.png']"
+             )
     end
 
     test "does not render private quizzes in public list", %{conn: conn} do

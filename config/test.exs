@@ -45,3 +45,6 @@ config :phoenix,
 
 # Disable automatic redirect in test suite to allow isolated sandbox tests
 config :quizir, :force_initial_admin_setup, false
+
+# Disable S3 upload by default in test suite
+config :quizir, :s3_configured_override, false

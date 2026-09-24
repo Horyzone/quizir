@@ -214,6 +214,16 @@ defmodule QuizirWeb.QuizLive.Show do
                   {String.capitalize(@quiz.visibility)}
                 </span>
               </div>
+              <%= if @quiz.image_url do %>
+                <div class="my-4 max-w-md overflow-hidden rounded-2xl border border-base-200 shadow-sm">
+                  <img
+                    id="quiz-details-image"
+                    src={@quiz.image_url}
+                    alt={@quiz.title}
+                    class="w-full h-56 object-cover"
+                  />
+                </div>
+              <% end %>
               <p id="quiz-details-desc" class="text-zinc-600 text-base">
                 {@quiz.description || "Aucune description fournie."}
               </p>
@@ -275,6 +285,16 @@ defmodule QuizirWeb.QuizLive.Show do
                 </div>
 
                 <p class="text-lg font-medium text-base-content mb-4">{question.body}</p>
+
+                <%= if question.image_url do %>
+                  <div class="mb-4 max-w-sm overflow-hidden rounded-xl border border-base-200">
+                    <img
+                      src={question.image_url}
+                      alt={question.body}
+                      class="w-full max-h-56 object-contain bg-base-200/30"
+                    />
+                  </div>
+                <% end %>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <%= for option <- question.answer_options do %>
