@@ -4,7 +4,7 @@ defmodule Quizir.MixProject do
   def project do
     [
       app: :quizir,
-      version: "0.1.0",
+      version: "1.0.0-beta3",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,

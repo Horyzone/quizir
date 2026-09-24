@@ -2,6 +2,7 @@
 
 <div align="center">
 
+[![Version](https://img.shields.io/github/v/tag/Horyzone/quizir?style=for-the-badge&label=version)](https://github.com/Horyzone/quizir/releases)
 ![Elixir](https://img.shields.io/badge/Elixir-1.18%2B-purple.svg?style=for-the-badge&logo=elixir)
 ![Phoenix](https://img.shields.io/badge/Phoenix-v1.8%2B-orange.svg?style=for-the-badge&logo=phoenixframework)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?style=for-the-badge&logo=docker)
