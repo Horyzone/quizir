@@ -176,8 +176,28 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert created.user_id == user.id
     end
 
-    test "creates quiz with image upload for quiz", %{conn: conn, user: _user} do
+    test "image upload is disabled when S3 is not configured", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      refute has_element?(view, "input[type='file']")
+      refute has_element?(view, "label", "Téléverser une image de couverture")
+    end
+
+    test "creates quiz with image upload when S3 is configured", %{conn: conn, user: _user} do
+      Application.put_env(:quizir, :s3_configured_override, true)
+
+      Application.put_env(:quizir, :storage_test_uploader, fn _path, original_filename ->
+        {:ok, "https://s3.example.com/uploads/#{original_filename}"}
+      end)
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :s3_configured_override)
+        Application.delete_env(:quizir, :storage_test_uploader)
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      assert has_element?(view, "label", "Téléverser une image de couverture")
 
       image =
         file_input(view, "#quiz-form", :quiz_image, [
@@ -202,8 +222,7 @@ defmodule QuizirWeb.QuizLive.FormTest do
         Quizzes.list_quizzes()
         |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
 
-      assert created.image_url != nil
-      assert String.starts_with?(created.image_url, "/uploads/")
+      assert created.image_url == "https://s3.example.com/uploads/cover.png"
     end
 
     test "creates a private quiz without access code", %{conn: conn} do

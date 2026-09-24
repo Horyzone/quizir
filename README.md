@@ -121,9 +121,9 @@ SECRET_KEY_BASE=votre_cle_generee_ici
 Vous pouvez également adapter les autres variables dans le fichier `.env` (domaine, configuration SMTP pour les emails, stockage S3, etc.).
 
 #### Configuration du stockage S3 pour les images (Optionnel)
-Quizir permet de téléverser des images pour illustrer les quiz (carte de présentation) et les questions. Par défaut, si aucune variable S3 n'est renseignée, les fichiers téléversés sont conservés localement dans le dossier `priv/static/uploads/`.
+Quizir permet d'associer des images d'illustration aux quiz (carte de présentation) et aux questions. **L'upload des images est activé uniquement si une configuration S3 est définie via les variables d'environnement.** En l'absence de ces variables, le téléversement d'images reste complètement désactivé dans l'application et aucun fichier n'est stocké sur le serveur local.
 
-Pour déléguer le stockage des images à un service compatible S3 (Amazon S3, Cloudflare R2, MinIO, Scaleway, Wasabi, OVHcloud, etc.), configurez les variables d'environnement suivantes :
+Pour activer le téléversement d'images avec un service de stockage compatible S3 (Amazon S3, Cloudflare R2, MinIO, Scaleway, Wasabi, OVHcloud, etc.), configurez les variables d'environnement suivantes :
 
 | Variable | Obligatoire | Description | Exemple / Valeur par défaut |
 | :--- | :---: | :--- | :--- |

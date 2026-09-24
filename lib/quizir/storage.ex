@@ -1,7 +1,7 @@
 defmodule Quizir.Storage do
   @moduledoc """
-  Handles file uploads to S3 or a local fallback directory.
-  S3 configuration is strictly retrieved from environment variables.
+  Handles file uploads to S3.
+  Image uploading can only be activated if an S3 configuration via environment variables is active.
   """
 
   require Logger
@@ -10,28 +10,41 @@ defmodule Quizir.Storage do
   Checks if S3 upload is configured via environment variables.
   """
   def s3_configured?(env_getter \\ &System.get_env/1) do
-    config = get_s3_config(env_getter)
-    config.bucket != nil and config.access_key_id != nil and config.secret_access_key != nil
+    case Application.get_env(:quizir, :s3_configured_override) do
+      val when is_boolean(val) ->
+        val
+
+      _ ->
+        config = get_s3_config(env_getter)
+        config.bucket != nil and config.access_key_id != nil and config.secret_access_key != nil
+    end
   end
 
   @doc """
-  Uploads a file to S3 (if configured) or local storage (as fallback).
+  Uploads a file to S3.
   Returns `{:ok, url}` or `{:error, reason}`.
+  Upload is strictly disabled if S3 is not configured via environment variables.
   """
   def upload_file(local_path, original_filename) do
-    ext = Path.extname(original_filename) |> String.downcase()
-    random_id = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
-
-    sanitized_name =
-      Path.basename(original_filename, ext) |> String.replace(~r/[^a-zA-Z0-9_-]/, "_")
-
-    key = "uploads/#{random_id}_#{sanitized_name}#{ext}"
-    content_type = mime_type(ext)
-
     if s3_configured?() do
-      upload_to_s3(local_path, key, content_type)
+      case Application.get_env(:quizir, :storage_test_uploader) do
+        fun when is_function(fun, 2) ->
+          fun.(local_path, original_filename)
+
+        _ ->
+          ext = Path.extname(original_filename) |> String.downcase()
+          random_id = :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
+
+          sanitized_name =
+            Path.basename(original_filename, ext) |> String.replace(~r/[^a-zA-Z0-9_-]/, "_")
+
+          key = "uploads/#{random_id}_#{sanitized_name}#{ext}"
+          content_type = mime_type(ext)
+
+          upload_to_s3(local_path, key, content_type)
+      end
     else
-      upload_to_local(local_path, key)
+      {:error, :s3_not_configured}
     end
   end
 
@@ -91,23 +104,8 @@ defmodule Quizir.Storage do
     end
   end
 
-  defp upload_to_local(local_path, key) do
-    priv_dir = :code.priv_dir(:quizir) || "priv"
-    dest_path = Path.join([priv_dir, "static", key])
-    dest_dir = Path.dirname(dest_path)
-
-    with :ok <- File.mkdir_p(dest_dir),
-         :ok <- File.cp(local_path, dest_path) do
-      {:ok, "/#{key}"}
-    else
-      {:error, reason} ->
-        Logger.error("Failed to save file locally: #{inspect(reason)}")
-        {:error, reason}
-    end
-  end
-
   @doc """
-  Deletes an uploaded file from S3 or local storage if possible.
+  Deletes an uploaded file from S3 if possible.
   """
   def delete_file(url) when is_binary(url) do
     cond do

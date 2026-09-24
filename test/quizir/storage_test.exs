@@ -48,25 +48,42 @@ defmodule Quizir.StorageTest do
     end
   end
 
-  describe "upload_file/2 and delete_file/1 local fallback" do
-    test "uploads file to local storage when S3 is not configured and deletes it" do
+  describe "upload_file/2 and delete_file/1" do
+    test "returns {:error, :s3_not_configured} when S3 is not configured" do
       tmp_dir = System.tmp_dir!()
-      tmp_path = Path.join(tmp_dir, "test_upload_image_#{System.unique_integer([:positive])}.png")
-      File.write!(tmp_path, <<137, 80, 78, 71, 13, 10, 26, 10>>)
+      tmp_path = Path.join(tmp_dir, "test_file_#{System.unique_integer([:positive])}.png")
+      File.write!(tmp_path, "fake data")
 
-      assert {:ok, url} = Storage.upload_file(tmp_path, "my_avatar.png")
-      assert String.starts_with?(url, "/uploads/")
-      assert String.ends_with?(url, ".png")
-
-      priv_dir = :code.priv_dir(:quizir) || "priv"
-      local_path = Path.join([priv_dir, "static", String.trim_leading(url, "/")])
-      assert File.exists?(local_path)
-
-      # Cleanup via delete_file
-      assert :ok = Storage.delete_file(url)
-      refute File.exists?(local_path)
+      assert {:error, :s3_not_configured} = Storage.upload_file(tmp_path, "photo.png")
 
       File.rm(tmp_path)
+    end
+
+    test "uploads file when S3 is configured" do
+      tmp_dir = System.tmp_dir!()
+      tmp_path = Path.join(tmp_dir, "test_file_#{System.unique_integer([:positive])}.png")
+      File.write!(tmp_path, "fake data")
+
+      Application.put_env(:quizir, :s3_configured_override, true)
+
+      Application.put_env(:quizir, :storage_test_uploader, fn _path, original_filename ->
+        {:ok, "https://s3.example.com/uploads/#{original_filename}"}
+      end)
+
+      on_exit(fn ->
+        Application.delete_env(:quizir, :s3_configured_override)
+        Application.delete_env(:quizir, :storage_test_uploader)
+      end)
+
+      assert {:ok, url} = Storage.upload_file(tmp_path, "actor.png")
+      assert url == "https://s3.example.com/uploads/actor.png"
+
+      File.rm(tmp_path)
+    end
+
+    test "delete_file/1 handles url safely" do
+      assert :ok = Storage.delete_file("https://s3.example.com/uploads/actor.png")
+      assert :ok = Storage.delete_file(nil)
     end
   end
 end
