@@ -274,8 +274,9 @@ defmodule QuizirWeb.QuizLive.Form do
   end
 
   @impl true
-  def handle_event("remove-question-image", %{"temp-id" => temp_id}, socket) do
-    upload_name = String.to_atom("question_image_#{temp_id}")
+  def handle_event("remove-question-image", params, socket) do
+    temp_id = params["temp-id"] || params["temp_id"]
+    upload_name = temp_id && String.to_atom("question_image_#{temp_id}")
 
     socket =
       if socket.assigns.uploads_enabled? && socket.assigns[:uploads] &&
@@ -369,61 +370,80 @@ defmodule QuizirWeb.QuizLive.Form do
       )
 
     # 1. Process quiz cover image upload if uploads are enabled
-    quiz_image_url =
+    {quiz_image_url, quiz_rejected?} =
       if socket.assigns.uploads_enabled? && socket.assigns[:uploads] &&
            socket.assigns[:uploads][:quiz_image] do
         case consume_uploaded_entries(socket, :quiz_image, fn %{path: path}, entry ->
                case Quizir.Storage.upload_file(path, entry.client_name) do
-                 {:ok, url} -> {:ok, url}
-                 {:error, _} -> {:ok, nil}
+                 {:ok, url} -> {:ok, {:ok, url}}
+                 {:error, :file_too_large} -> {:ok, {:error, :file_too_large}}
+                 {:error, reason} -> {:ok, {:error, reason}}
                end
              end) do
-          [url | _] when is_binary(url) and url != "" ->
-            url
+          [{:ok, url} | _] when is_binary(url) and url != "" ->
+            {url, false}
+
+          [{:error, :file_too_large} | _] ->
+            {nil, true}
 
           _ ->
             val = quiz_params["image_url"] || socket.assigns.quiz_params["image_url"]
-            if val in [nil, ""], do: nil, else: val
+            {if(val in [nil, ""], do: nil, else: val), false}
         end
       else
         val = quiz_params["image_url"] || socket.assigns.quiz_params["image_url"]
-        if val in [nil, ""], do: nil, else: val
+        {if(val in [nil, ""], do: nil, else: val), false}
       end
 
     # 2. Process questions images uploads if uploads are enabled
-    updated_questions =
-      Enum.map(questions, fn q ->
+    {updated_questions, questions_rejected?} =
+      Enum.map_reduce(questions, false, fn q, acc_rejected ->
         temp_id = q["temp_id"]
         upload_name = temp_id && String.to_atom("question_image_#{temp_id}")
 
-        q_image_url =
+        {q_image_url, rejected?} =
           if socket.assigns.uploads_enabled? && upload_name && socket.assigns[:uploads] &&
                socket.assigns[:uploads][upload_name] do
             case consume_uploaded_entries(socket, upload_name, fn %{path: path}, entry ->
                    case Quizir.Storage.upload_file(path, entry.client_name) do
-                     {:ok, url} -> {:ok, url}
-                     {:error, _} -> {:ok, nil}
+                     {:ok, url} -> {:ok, {:ok, url}}
+                     {:error, :file_too_large} -> {:ok, {:error, :file_too_large}}
+                     {:error, reason} -> {:ok, {:error, reason}}
                    end
                  end) do
-              [url | _] when is_binary(url) and url != "" ->
-                url
+              [{:ok, url} | _] when is_binary(url) and url != "" ->
+                {url, false}
+
+              [{:error, :file_too_large} | _] ->
+                {nil, true}
 
               _ ->
                 val = q["image_url"]
-                if val in [nil, ""], do: nil, else: val
+                {if(val in [nil, ""], do: nil, else: val), false}
             end
           else
             val = q["image_url"]
-            if val in [nil, ""], do: nil, else: val
+            {if(val in [nil, ""], do: nil, else: val), false}
           end
 
-        Map.put(q, "image_url", q_image_url)
+        {Map.put(q, "image_url", q_image_url), acc_rejected or rejected?}
       end)
 
     final_quiz_params =
       quiz_params
       |> Map.put("image_url", quiz_image_url)
       |> Map.put("questions", updated_questions)
+
+    socket =
+      if quiz_rejected? or questions_rejected? do
+        put_flash(
+          socket,
+          :error,
+          "Une ou plusieurs images dépassent 500 Ko après optimisation et n'ont pas été enregistrées."
+        )
+      else
+        socket
+      end
 
     save_quiz(socket, socket.assigns.live_action, final_quiz_params)
   end
@@ -611,7 +631,7 @@ defmodule QuizirWeb.QuizLive.Form do
                           Téléverser une image de couverture
                         </span>
                         <span class="text-xs text-base-content/60 block mt-0.5">
-                          Glissez-déposez ou cliquez (PNG, JPG, WebP, GIF jusqu'à 10 Mo)
+                          Glissez-déposez ou cliquez (PNG, JPG, WebP, GIF - max 1024x1024, 500 Ko)
                         </span>
                       </label>
                     <% end %>
@@ -705,7 +725,10 @@ defmodule QuizirWeb.QuizLive.Form do
                 <% current_q =
                   Enum.at(normalize_questions(@quiz_params["questions"]), q_form.index) || %{} %>
                 <% temp_id = q_form[:temp_id].value || current_q["temp_id"] %>
-                <% q_img_url = q_form[:image_url].value || current_q["image_url"] %>
+                <% q_img_url =
+                  if Map.has_key?(current_q, "image_url"),
+                    do: current_q["image_url"],
+                    else: q_form[:image_url].value %>
 
                 <div
                   id={"question-card-#{q_form.index}"}
@@ -835,7 +858,7 @@ defmodule QuizirWeb.QuizLive.Form do
                                   Ajouter une photo pour cette question
                                 </span>
                                 <span class="text-2xs text-base-content/50">
-                                  (PNG, JPG, WebP, GIF jusqu'à 10 Mo)
+                                  (max 1024x1024, 500 Ko)
                                 </span>
                               </label>
                             <% end %>
