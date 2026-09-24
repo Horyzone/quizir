@@ -176,6 +176,36 @@ defmodule QuizirWeb.QuizLive.FormTest do
       assert created.user_id == user.id
     end
 
+    test "creates quiz with image upload for quiz", %{conn: conn, user: _user} do
+      {:ok, view, _html} = live(conn, ~p"/quizzes/new")
+
+      image =
+        file_input(view, "#quiz-form", :quiz_image, [
+          %{
+            name: "cover.png",
+            content: <<137, 80, 78, 71, 13, 10, 26, 10>>,
+            type: "image/png"
+          }
+        ])
+
+      assert render_upload(image, "cover.png") =~ "100%"
+
+      {:ok, _index_view, html} =
+        view
+        |> form("#quiz-form", quiz: @valid_quiz_params)
+        |> render_submit()
+        |> follow_redirect(conn, ~p"/quizzes")
+
+      assert html =~ "Quiz sur la Géographie"
+
+      created =
+        Quizzes.list_quizzes()
+        |> Enum.find(&(&1.title == "Quiz sur la Géographie"))
+
+      assert created.image_url != nil
+      assert String.starts_with?(created.image_url, "/uploads/")
+    end
+
     test "creates a private quiz without access code", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/quizzes/new")
 
@@ -323,6 +353,47 @@ defmodule QuizirWeb.QuizLive.FormTest do
         |> render_submit()
 
       assert response =~ "can&#39;t be blank"
+    end
+
+    test "can remove quiz and question images via form buttons", %{conn: conn, user: user} do
+      {:ok, quiz} =
+        Quizzes.create_quiz(
+          %{
+            "title" => "Quiz avec images",
+            "visibility" => "public",
+            "image_url" => "https://example.com/initial_cover.jpg",
+            "questions" => [
+              %{
+                "body" => "Question illustrée",
+                "order" => 1,
+                "time_limit_seconds" => 20,
+                "image_url" => "https://example.com/initial_q.jpg",
+                "answer_options" => [
+                  %{"body" => "Oui", "is_correct" => true},
+                  %{"body" => "Non", "is_correct" => false}
+                ]
+              }
+            ]
+          },
+          user
+        )
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes/#{quiz}/edit")
+
+      assert has_element?(view, "#quiz-cover-preview")
+      assert has_element?(view, "#question-image-preview-0")
+
+      view
+      |> element("#remove-quiz-image-btn")
+      |> render_click()
+
+      refute has_element?(view, "#quiz-cover-preview")
+
+      view
+      |> element("#remove-question-image-0-btn")
+      |> render_click()
+
+      refute has_element?(view, "#question-image-preview-0")
     end
 
     test "navigates back to show page on cancel", %{conn: conn, user: user} do

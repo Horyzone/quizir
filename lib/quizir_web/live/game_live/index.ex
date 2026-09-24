@@ -202,6 +202,17 @@ defmodule QuizirWeb.GameLive.Index do
                 {game.quiz.title}
               </h2>
 
+              <%= if game.quiz.image_url do %>
+                <div class="my-2.5 overflow-hidden rounded-xl border border-base-200">
+                  <img
+                    src={game.quiz.image_url}
+                    alt={game.quiz.title}
+                    class="w-full h-32 object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              <% end %>
+
               <p class="text-xs text-base-content/65 line-clamp-2 leading-relaxed">
                 {game.quiz.description || "Préparez vos neurones, la partie est ouverte !"}
               </p>

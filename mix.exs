@@ -69,6 +69,7 @@ defmodule Quizir.MixProject do
       {:gen_smtp, "~> 1.3"},
       {:pbkdf2_elixir, "~> 2.3"},
       {:req, "~> 0.5"},
+      {:req_s3, "~> 0.2.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},

@@ -20,12 +20,14 @@ defmodule QuizirWeb.QuizLive.Form do
     quiz = Quizzes.get_quiz_with_details!(id)
 
     if Quizzes.can_manage_quiz?(quiz, socket.assigns.current_user) do
+      quiz_params = quiz_to_params(quiz)
       changeset = Quizzes.change_quiz(quiz)
 
       socket
       |> assign(:page_title, "Modifier le Quiz")
       |> assign(:quiz, quiz)
-      |> assign(:quiz_params, quiz_to_params(quiz))
+      |> assign(:quiz_params, quiz_params)
+      |> ensure_uploads(quiz_params)
       |> assign(:form, to_form(changeset))
     else
       socket
@@ -35,14 +37,19 @@ defmodule QuizirWeb.QuizLive.Form do
   end
 
   defp apply_action(socket, :new, _params) do
+    new_temp_id = "q_#{System.unique_integer([:positive])}"
+
     default_quiz_params = %{
       "title" => "",
       "description" => "",
       "visibility" => "public",
+      "image_url" => "",
       "questions" => [
         %{
+          "temp_id" => new_temp_id,
           "order" => 1,
           "body" => "",
+          "image_url" => "",
           "time_limit_seconds" => 20,
           "answer_options" => [
             %{"body" => "", "is_correct" => true},
@@ -59,6 +66,7 @@ defmodule QuizirWeb.QuizLive.Form do
     |> assign(:page_title, "Créer un Quiz")
     |> assign(:quiz, quiz)
     |> assign(:quiz_params, default_quiz_params)
+    |> ensure_uploads(default_quiz_params)
     |> assign(:form, to_form(changeset))
   end
 
@@ -68,12 +76,15 @@ defmodule QuizirWeb.QuizLive.Form do
       "title" => quiz.title || "",
       "description" => quiz.description || "",
       "visibility" => quiz.visibility || "public",
+      "image_url" => quiz.image_url || "",
       "questions" =>
         Enum.map(quiz.questions || [], fn q ->
           %{
             "id" => q.id,
+            "temp_id" => "q_#{q.id || System.unique_integer([:positive])}",
             "order" => q.order,
             "body" => q.body || "",
+            "image_url" => q.image_url || "",
             "time_limit_seconds" => q.time_limit_seconds || 20,
             "answer_options" =>
               Enum.map(q.answer_options || [], fn opt ->
@@ -88,8 +99,48 @@ defmodule QuizirWeb.QuizLive.Form do
     }
   end
 
+  defp ensure_uploads(socket, quiz_params) do
+    socket =
+      if socket.assigns[:uploads] && socket.assigns[:uploads][:quiz_image] do
+        socket
+      else
+        allow_upload(socket, :quiz_image,
+          accept: ~w(.jpg .jpeg .png .webp .gif),
+          max_entries: 1,
+          max_file_size: 10_000_000
+        )
+      end
+
+    questions = normalize_questions(quiz_params["questions"] || [])
+
+    Enum.reduce(questions, socket, fn q, acc ->
+      temp_id = q["temp_id"]
+
+      if temp_id && temp_id != "" do
+        upload_name = String.to_atom("question_image_#{temp_id}")
+
+        if acc.assigns[:uploads] && acc.assigns[:uploads][upload_name] do
+          acc
+        else
+          allow_upload(acc, upload_name,
+            accept: ~w(.jpg .jpeg .png .webp .gif),
+            max_entries: 1,
+            max_file_size: 10_000_000
+          )
+        end
+      else
+        acc
+      end
+    end)
+  end
+
   @impl true
   def handle_event("validate", %{"quiz" => quiz_params}, socket) do
+    questions = normalize_questions(quiz_params["questions"] || [])
+    quiz_params = Map.put(quiz_params, "questions", questions)
+
+    socket = ensure_uploads(socket, quiz_params)
+
     changeset =
       socket.assigns.quiz
       |> Quizzes.change_quiz(quiz_params)
@@ -105,10 +156,13 @@ defmodule QuizirWeb.QuizLive.Form do
   def handle_event("add-question", _params, socket) do
     params = socket.assigns.quiz_params
     questions = normalize_questions(params["questions"] || [])
+    new_temp_id = "q_#{System.unique_integer([:positive])}"
 
     new_question = %{
+      "temp_id" => new_temp_id,
       "order" => length(questions) + 1,
       "body" => "",
+      "image_url" => "",
       "time_limit_seconds" => 20,
       "answer_options" => [
         %{"body" => "", "is_correct" => true},
@@ -118,6 +172,14 @@ defmodule QuizirWeb.QuizLive.Form do
 
     updated_questions = questions ++ [new_question]
     updated_params = Map.put(params, "questions", updated_questions)
+
+    socket =
+      allow_upload(socket, String.to_atom("question_image_#{new_temp_id}"),
+        accept: ~w(.jpg .jpeg .png .webp .gif),
+        max_entries: 1,
+        max_file_size: 10_000_000
+      )
+
     changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
 
     {:noreply,
@@ -132,17 +194,96 @@ defmodule QuizirWeb.QuizLive.Form do
     params = socket.assigns.quiz_params
     questions = normalize_questions(params["questions"] || [])
 
-    updated_questions =
+    {removed_q, remaining_questions} =
       if length(questions) > 1 do
-        questions
-        |> List.delete_at(index)
-        |> Enum.with_index(1)
-        |> Enum.map(fn {q, i} -> Map.put(q, "order", i) end)
+        removed = Enum.at(questions, index)
+
+        rem =
+          questions
+          |> List.delete_at(index)
+          |> Enum.with_index(1)
+          |> Enum.map(fn {q, i} -> Map.put(q, "order", i) end)
+
+        {removed, rem}
       else
-        questions
+        {nil, questions}
       end
 
-    updated_params = Map.put(params, "questions", updated_questions)
+    socket =
+      if removed_q && removed_q["temp_id"] do
+        upload_name = String.to_atom("question_image_#{removed_q["temp_id"]}")
+
+        if socket.assigns[:uploads] && socket.assigns[:uploads][upload_name] do
+          disallow_upload(socket, upload_name)
+        else
+          socket
+        end
+      else
+        socket
+      end
+
+    updated_params = Map.put(params, "questions", remaining_questions)
+    changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:quiz_params, updated_params)
+     |> assign(:form, to_form(changeset))}
+  end
+
+  @impl true
+  def handle_event("cancel-upload", %{"ref" => ref, "upload" => upload_name_str}, socket) do
+    upload_name = String.to_atom(upload_name_str)
+    {:noreply, cancel_upload(socket, upload_name, ref)}
+  end
+
+  @impl true
+  def handle_event("remove-quiz-image", _params, socket) do
+    socket =
+      if socket.assigns[:uploads] && socket.assigns[:uploads][:quiz_image] do
+        case socket.assigns.uploads[:quiz_image].entries do
+          [entry | _] -> cancel_upload(socket, :quiz_image, entry.ref)
+          _ -> socket
+        end
+      else
+        socket
+      end
+
+    updated_params = Map.put(socket.assigns.quiz_params, "image_url", nil)
+    changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
+
+    {:noreply,
+     socket
+     |> assign(:quiz_params, updated_params)
+     |> assign(:form, to_form(changeset))}
+  end
+
+  @impl true
+  def handle_event("remove-question-image", %{"temp-id" => temp_id}, socket) do
+    upload_name = String.to_atom("question_image_#{temp_id}")
+
+    socket =
+      if socket.assigns[:uploads] && socket.assigns[:uploads][upload_name] do
+        case socket.assigns.uploads[upload_name].entries do
+          [entry | _] -> cancel_upload(socket, upload_name, entry.ref)
+          _ -> socket
+        end
+      else
+        socket
+      end
+
+    questions = normalize_questions(socket.assigns.quiz_params["questions"] || [])
+
+    updated_questions =
+      Enum.map(questions, fn q ->
+        if q["temp_id"] == temp_id do
+          Map.put(q, "image_url", nil)
+        else
+          q
+        end
+      end)
+
+    updated_params = Map.put(socket.assigns.quiz_params, "questions", updated_questions)
     changeset = Quizzes.change_quiz(socket.assigns.quiz, updated_params)
 
     {:noreply,
@@ -206,7 +347,67 @@ defmodule QuizirWeb.QuizLive.Form do
 
   @impl true
   def handle_event("save", %{"quiz" => quiz_params}, socket) do
-    save_quiz(socket, socket.assigns.live_action, quiz_params)
+    questions =
+      normalize_questions(
+        quiz_params["questions"] || socket.assigns.quiz_params["questions"] || []
+      )
+
+    # 1. Process quiz cover image upload
+    quiz_image_url =
+      if socket.assigns[:uploads] && socket.assigns[:uploads][:quiz_image] do
+        case consume_uploaded_entries(socket, :quiz_image, fn %{path: path}, entry ->
+               case Quizir.Storage.upload_file(path, entry.client_name) do
+                 {:ok, url} -> {:ok, url}
+                 {:error, _} -> {:ok, nil}
+               end
+             end) do
+          [url | _] when is_binary(url) and url != "" ->
+            url
+
+          _ ->
+            val = quiz_params["image_url"] || socket.assigns.quiz_params["image_url"]
+            if val in [nil, ""], do: nil, else: val
+        end
+      else
+        val = quiz_params["image_url"] || socket.assigns.quiz_params["image_url"]
+        if val in [nil, ""], do: nil, else: val
+      end
+
+    # 2. Process questions images uploads
+    updated_questions =
+      Enum.map(questions, fn q ->
+        temp_id = q["temp_id"]
+        upload_name = temp_id && String.to_atom("question_image_#{temp_id}")
+
+        q_image_url =
+          if upload_name && socket.assigns[:uploads] && socket.assigns[:uploads][upload_name] do
+            case consume_uploaded_entries(socket, upload_name, fn %{path: path}, entry ->
+                   case Quizir.Storage.upload_file(path, entry.client_name) do
+                     {:ok, url} -> {:ok, url}
+                     {:error, _} -> {:ok, nil}
+                   end
+                 end) do
+              [url | _] when is_binary(url) and url != "" ->
+                url
+
+              _ ->
+                val = q["image_url"]
+                if val in [nil, ""], do: nil, else: val
+            end
+          else
+            val = q["image_url"]
+            if val in [nil, ""], do: nil, else: val
+          end
+
+        Map.put(q, "image_url", q_image_url)
+      end)
+
+    final_quiz_params =
+      quiz_params
+      |> Map.put("image_url", quiz_image_url)
+      |> Map.put("questions", updated_questions)
+
+    save_quiz(socket, socket.assigns.live_action, final_quiz_params)
   end
 
   defp save_quiz(socket, :edit, quiz_params) do
@@ -248,6 +449,13 @@ defmodule QuizirWeb.QuizLive.Form do
     end
   end
 
+  defp ensure_temp_id(%{"temp_id" => id} = q) when is_binary(id) and id != "", do: q
+
+  defp ensure_temp_id(q) do
+    id = q["id"] || System.unique_integer([:positive])
+    Map.put(q, "temp_id", "q_#{id}")
+  end
+
   defp normalize_options(opts) when is_map(opts) do
     opts
     |> Enum.sort_by(fn {k, _} -> String.to_integer(to_string(k)) end)
@@ -260,14 +468,27 @@ defmodule QuizirWeb.QuizLive.Form do
   defp normalize_questions(qs) when is_map(qs) do
     qs
     |> Enum.sort_by(fn {k, _} -> String.to_integer(to_string(k)) end)
-    |> Enum.map(fn {_k, q} -> Map.update(q, "answer_options", [], &normalize_options/1) end)
+    |> Enum.map(fn {_k, q} ->
+      q
+      |> ensure_temp_id()
+      |> Map.update("answer_options", [], &normalize_options/1)
+    end)
   end
 
   defp normalize_questions(qs) when is_list(qs) do
-    Enum.map(qs, fn q -> Map.update(q, "answer_options", [], &normalize_options/1) end)
+    Enum.map(qs, fn q ->
+      q
+      |> ensure_temp_id()
+      |> Map.update("answer_options", [], &normalize_options/1)
+    end)
   end
 
   defp normalize_questions(_), do: []
+
+  defp error_to_string(:too_large), do: "Le fichier est trop volumineux (max 10 Mo)."
+  defp error_to_string(:not_accepted), do: "Format de fichier non supporté (JPG, PNG, WebP, GIF)."
+  defp error_to_string(:too_many_files), do: "Trop de fichiers sélectionnés."
+  defp error_to_string(err), do: "Erreur de téléversement : #{inspect(err)}"
 
   @impl true
   def render(assigns) do
@@ -302,6 +523,93 @@ defmodule QuizirWeb.QuizLive.Form do
               label="Titre du quiz"
               placeholder="Ex: Culture générale"
             />
+
+            <!-- Image d'illustration du quiz (card cover) entre titre et description -->
+            <div>
+              <label class="label text-sm font-semibold pb-1">
+                Image d'illustration du quiz (optionnelle)
+              </label>
+              <input type="hidden" name="quiz[image_url]" value={@quiz_params["image_url"] || ""} />
+
+              <%= if @quiz_params["image_url"] && @quiz_params["image_url"] != "" && (!@uploads.quiz_image || Enum.empty?(@uploads.quiz_image.entries)) do %>
+                <div class="relative group max-w-sm rounded-xl overflow-hidden border border-base-300 shadow-sm bg-base-200/50">
+                  <img
+                    id="quiz-cover-preview"
+                    src={@quiz_params["image_url"]}
+                    alt="Illustration du quiz"
+                    class="w-full h-44 object-cover"
+                  />
+                  <div class="p-2 bg-base-100/90 backdrop-blur-xs flex items-center justify-between border-t border-base-200">
+                    <span class="text-xs text-base-content/70 truncate">Image actuelle</span>
+                    <button
+                      type="button"
+                      id="remove-quiz-image-btn"
+                      phx-click="remove-quiz-image"
+                      class="btn btn-xs btn-error btn-ghost gap-1"
+                    >
+                      <.icon name="hero-trash" class="size-3.5" /> Supprimer
+                    </button>
+                  </div>
+                </div>
+              <% else %>
+                <%= if @uploads.quiz_image do %>
+                  <div
+                    class="border-2 border-dashed border-base-300 rounded-xl p-4 text-center hover:border-primary/50 transition cursor-pointer bg-base-200/20"
+                    phx-drop-target={@uploads.quiz_image.ref}
+                  >
+                    <%= for entry <- @uploads.quiz_image.entries do %>
+                      <div class="flex flex-col items-center gap-2">
+                        <div class="max-w-xs rounded-lg overflow-hidden border border-base-300">
+                          <.live_img_preview entry={entry} class="w-full h-36 object-cover" />
+                        </div>
+                        <div class="w-full max-w-xs space-y-1">
+                          <div class="flex items-center justify-between text-xs">
+                            <span class="truncate">{entry.client_name}</span>
+                            <button
+                              type="button"
+                              phx-click="cancel-upload"
+                              phx-value-ref={entry.ref}
+                              phx-value-upload="quiz_image"
+                              class="text-error hover:underline text-xs"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                          <progress
+                            class="progress progress-primary w-full h-1.5"
+                            value={entry.progress}
+                            max="100"
+                          >
+                            {entry.progress}%
+                          </progress>
+                        </div>
+                      </div>
+                    <% end %>
+
+                    <%= if Enum.empty?(@uploads.quiz_image.entries) do %>
+                      <label for={@uploads.quiz_image.ref} class="cursor-pointer block">
+                        <.icon name="hero-photo" class="size-8 mx-auto text-base-content/40 mb-1" />
+                        <span class="text-sm font-medium text-primary hover:underline">
+                          Téléverser une image de couverture
+                        </span>
+                        <span class="text-xs text-base-content/60 block mt-0.5">
+                          Glissez-déposez ou cliquez (PNG, JPG, WebP, GIF jusqu'à 10 Mo)
+                        </span>
+                      </label>
+                    <% end %>
+                    <.live_file_input upload={@uploads.quiz_image} class="hidden" />
+                  </div>
+
+                  <%= for err <- upload_errors(@uploads.quiz_image) do %>
+                    <p class="text-xs text-error mt-1">{error_to_string(err)}</p>
+                  <% end %>
+                  <%= for entry <- @uploads.quiz_image.entries, err <- upload_errors(@uploads.quiz_image, entry) do %>
+                    <p class="text-xs text-error mt-1">{error_to_string(err)}</p>
+                  <% end %>
+                <% end %>
+              <% end %>
+            </div>
+
             <.input
               field={@form[:description]}
               id="quiz-description"
@@ -347,6 +655,13 @@ defmodule QuizirWeb.QuizLive.Form do
 
             <div class="space-y-6">
               <.inputs_for :let={q_form} field={@form[:questions]}>
+                <% current_q =
+                  Enum.at(normalize_questions(@quiz_params["questions"]), q_form.index) || %{} %>
+                <% temp_id = q_form[:temp_id].value || current_q["temp_id"] %>
+                <% upload_name = temp_id && String.to_atom("question_image_#{temp_id}") %>
+                <% q_upload = upload_name && @uploads[upload_name] %>
+                <% q_img_url = q_form[:image_url].value || current_q["image_url"] %>
+
                 <div
                   id={"question-card-#{q_form.index}"}
                   class="p-5 rounded-xl bg-base-100 border border-base-300 shadow-sm transition hover:shadow-md"
@@ -363,6 +678,8 @@ defmodule QuizirWeb.QuizLive.Form do
                       name={q_form[:id].name}
                       value={q_form[:id].value}
                     />
+                    <input type="hidden" name={q_form[:temp_id].name} value={temp_id} />
+                    <input type="hidden" name={q_form[:image_url].name} value={q_img_url || ""} />
 
                     <%= if length(normalize_questions(@quiz_params["questions"])) > 1 do %>
                       <button
@@ -384,7 +701,7 @@ defmodule QuizirWeb.QuizLive.Form do
                         field={q_form[:body]}
                         id={"question-#{q_form.index}-body"}
                         label="Énoncé de la question"
-                        placeholder="Ex: Quelle est la capitale de l'Australie ?"
+                        placeholder="Ex: Quel est le nom de cet acteur ?"
                       />
                     </div>
                     <div>
@@ -395,6 +712,95 @@ defmodule QuizirWeb.QuizLive.Form do
                         label="Délai (sec, 5 à 120)"
                       />
                     </div>
+                  </div>
+
+                  <!-- Question Image Upload / Preview -->
+                  <div class="mb-4">
+                    <label class="label text-xs font-semibold text-base-content/80 pb-1">
+                      Illustration de la question (optionnelle)
+                    </label>
+
+                    <%= if q_img_url && q_img_url != "" && (!q_upload || Enum.empty?(q_upload.entries)) do %>
+                      <div class="relative group max-w-xs rounded-xl overflow-hidden border border-base-300 shadow-sm bg-base-200/50">
+                        <img
+                          id={"question-image-preview-#{q_form.index}"}
+                          src={q_img_url}
+                          alt="Illustration de la question"
+                          class="w-full h-32 object-contain bg-base-200/30"
+                        />
+                        <div class="p-1.5 bg-base-100/90 backdrop-blur-xs flex items-center justify-between border-t border-base-200">
+                          <span class="text-xs text-base-content/70 truncate">Image actuelle</span>
+                          <button
+                            type="button"
+                            id={"remove-question-image-#{q_form.index}-btn"}
+                            phx-click="remove-question-image"
+                            phx-value-temp-id={temp_id}
+                            class="btn btn-xs btn-error btn-ghost gap-1"
+                          >
+                            <.icon name="hero-trash" class="size-3" /> Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    <% else %>
+                      <%= if q_upload do %>
+                        <div
+                          class="border border-dashed border-base-300 rounded-lg p-3 text-center hover:border-primary/50 transition cursor-pointer bg-base-200/20"
+                          phx-drop-target={q_upload.ref}
+                        >
+                          <%= for entry <- q_upload.entries do %>
+                            <div class="flex items-center gap-3 p-1 rounded-lg">
+                              <div class="size-16 rounded-md overflow-hidden shrink-0 border border-base-300">
+                                <.live_img_preview entry={entry} class="size-full object-cover" />
+                              </div>
+                              <div class="flex-1 min-w-0 space-y-1 text-left">
+                                <div class="flex items-center justify-between text-xs">
+                                  <span class="truncate font-medium">{entry.client_name}</span>
+                                  <button
+                                    type="button"
+                                    phx-click="cancel-upload"
+                                    phx-value-ref={entry.ref}
+                                    phx-value-upload={to_string(upload_name)}
+                                    class="text-error hover:underline text-xs"
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                                <progress
+                                  class="progress progress-primary w-full h-1.5"
+                                  value={entry.progress}
+                                  max="100"
+                                >
+                                  {entry.progress}%
+                                </progress>
+                              </div>
+                            </div>
+                          <% end %>
+
+                          <%= if Enum.empty?(q_upload.entries) do %>
+                            <label
+                              for={q_upload.ref}
+                              class="cursor-pointer flex items-center justify-center gap-2"
+                            >
+                              <.icon name="hero-photo" class="size-4 text-primary" />
+                              <span class="text-xs font-semibold text-primary hover:underline">
+                                Ajouter une photo pour cette question
+                              </span>
+                              <span class="text-2xs text-base-content/50">
+                                (PNG, JPG, WebP, GIF jusqu'à 10 Mo)
+                              </span>
+                            </label>
+                          <% end %>
+                          <.live_file_input upload={q_upload} class="hidden" />
+                        </div>
+
+                        <%= for err <- upload_errors(q_upload) do %>
+                          <p class="text-xs text-error mt-0.5">{error_to_string(err)}</p>
+                        <% end %>
+                        <%= for entry <- q_upload.entries, err <- upload_errors(q_upload, entry) do %>
+                          <p class="text-xs text-error mt-0.5">{error_to_string(err)}</p>
+                        <% end %>
+                      <% end %>
+                    <% end %>
                   </div>
 
                   <div class="mt-4 pt-4 border-t border-base-200">
@@ -441,9 +847,6 @@ defmodule QuizirWeb.QuizLive.Form do
                               label="Bonne réponse"
                             />
                           </div>
-                          <% current_q =
-                            Enum.at(normalize_questions(@quiz_params["questions"]), q_form.index) ||
-                              %{} %>
                           <% current_opts = normalize_options(current_q["answer_options"] || []) %>
                           <%= if length(current_opts) > 2 do %>
                             <button

@@ -479,6 +479,16 @@ defmodule QuizirWeb.GameLive.Play do
                   </span>
                 </div>
                 <h1 class="text-4xl font-extrabold mb-3">{@quiz.title}</h1>
+                <%= if @quiz.image_url do %>
+                  <div class="my-4 max-w-sm mx-auto overflow-hidden rounded-2xl border border-base-300 shadow-sm">
+                    <img
+                      src={@quiz.image_url}
+                      alt={@quiz.title}
+                      class="w-full h-44 object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                <% end %>
                 <p class="text-zinc-600 max-w-lg mx-auto text-sm">
                   {@quiz.description || "Préparez vos neurones, la partie va commencer !"}
                 </p>
@@ -630,6 +640,17 @@ defmodule QuizirWeb.GameLive.Play do
                   {current_q.body}
                 </h2>
 
+                <%= if current_q.image_url do %>
+                  <div class="mb-6 flex justify-center">
+                    <img
+                      id="question-image"
+                      src={current_q.image_url}
+                      alt={current_q.body}
+                      class="max-h-72 max-w-full rounded-2xl border border-base-300 object-contain shadow-md"
+                    />
+                  </div>
+                <% end %>
+
                 <!-- Host info on answer submissions -->
                 <%= if @is_host do %>
                   <div
@@ -716,6 +737,17 @@ defmodule QuizirWeb.GameLive.Play do
               <div class="p-6 rounded-3xl bg-base-100 border border-base-300 shadow-sm text-center">
                 <span class="badge badge-neutral text-xs mb-2">Question {@current_question_index + 1} terminée</span>
                 <h2 class="text-2xl font-bold mb-4">{current_q.body}</h2>
+
+                <%= if current_q.image_url do %>
+                  <div class="mb-4 flex justify-center">
+                    <img
+                      id="reveal-question-image"
+                      src={current_q.image_url}
+                      alt={current_q.body}
+                      class="max-h-60 max-w-full rounded-2xl border border-base-300 object-contain shadow-sm"
+                    />
+                  </div>
+                <% end %>
 
                 <%= if @current_player do %>
                   <%= if @last_answer_result && @last_answer_result.is_correct do %>

@@ -105,6 +105,22 @@ defmodule QuizirWeb.HomeLiveTest do
       assert has_element?(view, "#featured-quiz-#{quiz.id}")
       assert has_element?(view, "#featured-quiz-#{quiz.id}", "Quiz Culture Populaire")
     end
+
+    test "renders featured public quiz card image when present", %{conn: conn} do
+      quiz =
+        quiz_fixture(%{
+          title: "Quiz Cinéma Populaire",
+          visibility: "public",
+          image_url: "https://example.com/featured.jpg"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(
+               view,
+               "#featured-quiz-#{quiz.id} img[src='https://example.com/featured.jpg']"
+             )
+    end
   end
 
   describe "GET / (HomeLive) authenticated" do

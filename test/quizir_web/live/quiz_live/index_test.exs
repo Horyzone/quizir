@@ -26,6 +26,25 @@ defmodule QuizirWeb.QuizLive.IndexTest do
       refute has_element?(view, "#delete-quiz-#{quiz.id}-btn")
     end
 
+    test "renders quiz card image when present", %{conn: conn} do
+      owner = user_fixture()
+
+      quiz =
+        quiz_fixture(%{
+          title: "Quiz Photo",
+          visibility: "public",
+          user_id: owner.id,
+          image_url: "https://example.com/card_image.png"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/quizzes")
+
+      assert has_element?(
+               view,
+               "#quizzes-#{quiz.id} img[src='https://example.com/card_image.png']"
+             )
+    end
+
     test "does not render private quizzes in public list", %{conn: conn} do
       owner = user_fixture()
 

@@ -227,6 +227,7 @@ defmodule Quizir.Quizzes do
           "body" => q.body,
           "order" => q.order,
           "time_limit_seconds" => q.time_limit_seconds,
+          "image_url" => q.image_url,
           "answer_options" => options
         }
       end)
@@ -235,6 +236,7 @@ defmodule Quizir.Quizzes do
       "title" => "#{quiz.title} (copie)",
       "description" => quiz.description,
       "visibility" => quiz.visibility,
+      "image_url" => quiz.image_url,
       "questions" => duplicated_questions
     }
 

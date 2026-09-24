@@ -271,6 +271,17 @@ defmodule QuizirWeb.QuizLive.MyQuizzes do
                 </.link>
               </h2>
 
+              <%= if quiz.image_url do %>
+                <div class="mt-3 overflow-hidden rounded-xl border border-base-200">
+                  <img
+                    src={quiz.image_url}
+                    alt={quiz.title}
+                    class="w-full h-36 object-cover group-hover:scale-105 transition duration-300"
+                    loading="lazy"
+                  />
+                </div>
+              <% end %>
+
               <p class="text-xs text-base-content/65 mt-2 line-clamp-2 leading-relaxed">
                 {quiz.description || "Aucune description fournie pour ce quiz."}
               </p>

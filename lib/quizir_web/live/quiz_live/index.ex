@@ -136,6 +136,18 @@ defmodule QuizirWeb.QuizLive.Index do
                   {String.capitalize(quiz.visibility)}
                 </span>
               </div>
+
+              <%= if quiz.image_url do %>
+                <div class="mt-3 overflow-hidden rounded-xl border border-base-200">
+                  <img
+                    src={quiz.image_url}
+                    alt={quiz.title}
+                    class="w-full h-40 object-cover hover:scale-105 transition duration-300"
+                    loading="lazy"
+                  />
+                </div>
+              <% end %>
+
               <p class="text-zinc-600 text-sm mt-2 line-clamp-2">
                 {quiz.description || "Aucune description"}
               </p>

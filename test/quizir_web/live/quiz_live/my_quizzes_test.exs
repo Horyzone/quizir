@@ -73,6 +73,23 @@ defmodule QuizirWeb.QuizLive.MyQuizzesTest do
       refute has_element?(view, "#quiz-link-#{other_quiz.id}")
     end
 
+    test "renders quiz card image when present in my quizzes", %{conn: conn, user: user} do
+      quiz =
+        quiz_fixture(%{
+          user: user,
+          title: "Mon Quiz Illustré",
+          visibility: "public",
+          image_url: "https://example.com/my_card_image.png"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/my-quizzes")
+
+      assert has_element?(
+               view,
+               "#quizzes-#{quiz.id} img[src='https://example.com/my_card_image.png']"
+             )
+    end
+
     test "filters by public quizzes", %{
       conn: conn,
       my_public: my_public,
